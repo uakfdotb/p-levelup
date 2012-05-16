@@ -363,12 +363,12 @@ public class Game {
 	//If amount isn't the same, then the first trick wins.
 	//True means first trick is better
 	public boolean compareTrick(Trick one, Trick two) {
-		if(one.getAmounts().equals(two.getAmounts())){
+		if(one.getAmounts().equals(two.getAmounts())) {
 			//check that all the suits in two match
 			int oneSuit = one.getCards().get(0).gameSuit;
 			boolean trumpCheck = false;
-			for(int i=0; i < two.getCards().size(); i++){
-				if(two.getCards().get(i).gameSuit != oneSuit && trumpCheck == false){
+			for(int i=0; i < two.getCards().size(); i++) {
+				if(two.getCards().get(i).gameSuit != oneSuit && trumpCheck == false) {
 					if(trumpCheck == false && two.getCards().get(i).gameSuit == Card.SUIT_TRUMP){
 						trumpCheck = true;
 					} else if (two.getCards().get(i).gameSuit != Card.SUIT_TRUMP && trumpCheck == true) {
@@ -380,14 +380,30 @@ public class Game {
 			}
 			
 			//at this point first hand is either same suit as second or second is all trump
+			//confirm that a the second trick is in sequential order
+			if(two.getAmounts().size()>1) {
+				int j=0;
+				for(int i=0; i<two.getAmounts().size()-1; i++) {
+					if(two.getCards().get(j).value == ( two.getCards.get( j+two.getAmounts().get(i) ).value - 1 )) {
+						j+=two.getAmounts().get(i);
+					} else {
+						//second hand is not a sequence
+						return true;
+					}
+				}
+			}
+			
 			if(trumpCheck){
-				
+				//if in sequence, and amount matchs, then the basic suit would be trumped regardless of card value
+				return false;
 			} else {
-				for(int i=0; i<one.getCards().size(); i++){
+				for(int i=0; i<one.getCards().size(); i++) {
 					if(two.getCards().get(i).value <= one.getCards().get(i).value) {
 						return true;
 					}
 				}
+				//if all line up cards are greater than the first tricks, the second hand wins
+				return false;
 			}
 		} else {
 			return true;
