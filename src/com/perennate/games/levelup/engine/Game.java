@@ -350,6 +350,42 @@ public class Game {
 		}
 	}
 	
+	//this will compare two Tricks and return the better of the two.
+	//The trick put in first is given priority meaning if they are equal, then the first trick will win. 
+	//If amount isn't the same, then the first trick wins.
+	//True means first trick is better
+	public boolean compareTrick(Trick one, Trick two){
+		if(one.getAmounts().equals(two.getAmounts())){
+			//check that all the suits in two match
+			int oneSuit = one.getCards().get(0).gameSuit;
+			boolean trumpCheck = false;
+			for(int i=0; i < two.getCards().size(); i++){
+				if(two.getCards().get(i).gameSuit != oneSuit && trumpCheck == false){
+					if(trumpCheck == false && two.getCards().get(i).gameSuit == SUIT_TRUMP){
+						trumpCheck == true;
+					} else if (two.getCards().get(i).gameSuit != SUIT_TRUMP && trumpCheck == true) {
+						return true;
+					}
+				} else {
+				 return true;
+				}
+			}
+			
+			//at this point first hand is either same suit as second or second is all trump
+			if(trumpCheck){
+				
+			} else {
+				for(int i=0; i<one.getCards().size(); i++){
+					if(two.getCards().get(i).getValue <= one.getCards().get(i).getValue) {
+						return true;
+					}
+				}
+			}
+		} else {
+			return true;
+		}
+	}
+	
 	//returns milliseconds, maximum time to wait until next update
 	public int update() {
 		if(state == STATE_INIT) {
