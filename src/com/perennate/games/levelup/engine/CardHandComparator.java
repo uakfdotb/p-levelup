@@ -3,7 +3,7 @@ package com.perennate.games.levelup.engine;
 import java.util.Comparator;
 
 //orders a card in the hand by value and then suit
-public class CardHandComparator implements Comparator {
+public class CardHandComparator implements Comparator<Card> {
 	int trumpSuit;
 	int trumpValue;
 	
@@ -12,9 +12,7 @@ public class CardHandComparator implements Comparator {
 		this.trumpValue = trumpValue;
 	}
 	
-	public int compare(Object o1, Object o2) {
-		Card a = (Card) o1;
-		Card b = (Card) o2;
+	public int compare(Card a, Card b) {
 		boolean aTrump = a.isTrump(trumpSuit, trumpValue);
 		boolean bTrump = b.isTrump(trumpSuit, trumpValue);
 		
