@@ -16,14 +16,14 @@ public class Card {
 	int value; //2=two, 13=king, 14=ace; 15=small joker; 16=big joker
 	int suit;
 	
-	//gameSuit is set after betting is over
+	//gameSuit is updated after betting is over
 	//in this case, the trump value and suit are all represented by SUIT_TRUMP
 	int gameSuit;
 	
 	public Card(int value, int suit) {
 		this.value = value;
 		this.suit = suit;
-		gameSuit = SUIT_NONE;
+		gameSuit = suit;
 	}
 	
 	//create card based on a unique ID
@@ -103,5 +103,23 @@ public class Card {
 		}
 		
 		return num;
+	}
+}
+
+class CardTuple {
+	Card card;
+	int amount;
+	
+	public CardTuple(Card card, int amount) {
+		this.card = card;
+		this.amount = amount;
+	}
+	
+	public Card getCard() {
+		return card;
+	}
+	
+	public int getAmount() {
+		return amount;
 	}
 }

@@ -55,51 +55,60 @@ public class Player {
 	//for example, a double is {2}
 	//4H 4H 5H 5H would be {2, 2}
 	//returns number of tricks found matching the specified type
-	public int searchTrick(int suit, int[] trickType) {
-		int startingValue = -1;
-		int typeIndex = 0;
-		int cardsFound = 0;
+	public boolean searchTrick(int suit, List<Integer> trickType) {
+		List<CardTuple> tuples = getTuples(suit);
 		
-		int tricksFound = 0;
+		int lastValue = -1;
+		int trickIndex = 0;
+		
+		for(CardTuple tuple : tuples) {
+			if(tuple.getCard().gameSuit == suit && tuple.getAmount() > trickType.get(trickIndex)) {
+				if(lastValue != -1 && tuple.getCard().value == lastValue + 1) {
+					lastValue++;
+					trickIndex++;
+					
+					if(trickIndex >= trickType.size()) {
+						return true;
+					}
+				} else {
+					lastValue = tuple.getCard().value;
+					trickIndex = 1;
+				}
+			}
+		}
+		
+		return false;
+	}
+	
+	//searches for tuples in the player's hand
+	public List<CardTuple> getTuples(int suit) {
+		List<CardTuple> array = new ArrayList<CardTuple>();
+		
+		Card currentCard = null;
+		int count = 0;
 		
 		for(int i = 0; i < hand.size(); i++) {
 			Card card = hand.get(i);
 			
 			if(card.gameSuit == suit) {
-				if(startingValue == -1) {
-					startingValue = card.value;
-					cardsFound = 1;
+				if(currentCard != null && card.equals(currentCard)) {
+					count++;
 				} else {
-					//make sure that this is the next card we're searching for
-					if(card.value == startingValue + typeIndex) {
-						cardsFound++;
-					} else {
-						startingValue = -1;
-						typeIndex = 0;
-						cardsFound = 0;
-						continue;
+					if(count >= 2) {
+						array.add(new CardTuple(currentCard, count));
 					}
-				}
-				
-				//update typeIndex if needed
-				if(cardsFound > trickType[typeIndex]) {
-					typeIndex++;
 					
-					if(typeIndex >= trickType.length) {
-						startingValue = -1;
-						typeIndex = 0;
-						cardsFound = 0;
-						tricksFound++;
-					}
+					currentCard = card;
+					count = 1;
 				}
-			} else {
-				startingValue = -1;
-				typeIndex = 0;
-				cardsFound = 0;
 			}
 		}
 		
-		return tricksFound;
+		if(count >= 2) {
+			array.add(new CardTuple(currentCard, count));
+		}
+		
+		return array;
 	}
 	
 	public List<Card> getHand() {

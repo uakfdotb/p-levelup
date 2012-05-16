@@ -202,15 +202,138 @@ public class Game {
 			int totalSuitCards = 0;
 			for(int i = 0; i < cards.size(); i++) {
 				if(cards.get(i).gameSuit == trickSuit) {
-					totalSuitCards+= amounts.get(i);
+					totalSuitCards += amounts.get(i);
 				}
 			}
 			
+			//if total cards in suit that player played is not
+			// equal to the total cards in suit or the total trick
+			// cards, then this in an invalid play
 			if(totalSuitCards != suitTotal && totalSuitCards != trickCards) return false;
 			
-			if(trickAmount > 1) {
-				//follow doubles, triples, etc. if possible
-				int numSingle = tricksFound();
+			//follow doubles and triples if possible
+			// this only applies if the player has not exhausted the suit
+			if(trickAmount > 1 && totalSuitCards == trickCards) {
+				//first make sure player isn't avoiding playing the enter combination
+				if(players.get(player).searchTrick(trickSuit, openingPlay.getAmounts())) {
+					if(!amounts.equals(openingPlay.getAmounts())) {
+						return false;
+					}
+				} else {
+					//if not combination, make sure player plays as many individual parts as possible
+					
+					//find all the tuples
+					List<CardTuple> tuples = players.get(player).getTuples(trickSuit);
+					
+					//now find tuples that the player has played
+					// because player doesn't have to play entire tuple, we must
+					// also keep track of the number of cards within the tuple played
+					List<CardTuple> tuplesPlayed = new ArrayList<CardTuple>();
+					List<Integer> numCardsPlayed = new ArrayList<Integer>();
+					for(int i = 0; i < amounts.size(); i++) {
+						if(amounts.get(i) >= 2) {
+							numCardsPlayed.add(amounts.get(i));
+							
+							//find corresponding card tuple
+							for(CardTuple tuple : tuples) {
+								if(tuple.getCard().equals(cards.get(i))) {
+									tuplesPlayed.add(tuple);
+									break;
+								}
+							}
+						}
+					}
+					
+					//now loop through each amount (which should all be the same)
+					// and make sure player didn't avoid something needed to play
+					for(int i = 0; i < openingPlay.getAmounts().size(); i++) {
+						int currAmount = openingPlay.getAmounts().get(i);
+						
+						//see if player has exact number
+						boolean hasExact = false;
+						for(CardTuple tuple : tuples) {
+							if(tuple.getAmount() == currAmount) {
+								hasExact = true;
+								break;
+							}
+						}
+						
+						if(hasExact) {
+							//player does have the exact number of cards
+							// now just make sure he played it or an appropriate replacement
+							boolean foundReplacement = false;
+							for(int j = 0; j < numCardsPlayed.size(); j++) {
+								if(numCardsPlayed.get(j) >= currAmount) {
+									//player did play replacement
+									
+									//first update both the hand and played tuple
+									CardTuple tuple = tuplesPlayed.get(j);
+									tuple.amount -= currAmount;
+									numCardsPlayed.set(j, numCardsPlayed.get(j) - currAmount);
+									
+									//remove from hand tuples if needed
+									if(tuple.amount <= 1) {
+										//remove this tuple from hand tuples list because it's no longer a tuple
+										tuples.remove(tuple);
+									}
+									
+									//remove from played tuples if needed
+									if(numCardsPlayed.get(j) <= 1) {
+										//in this case, the played tuple is now either a single or gone completely
+										// so remove from the played list
+										numCardsPlayed.remove(j);
+										tuplesPlayed.remove(j);
+									}
+									
+									foundReplacement = true;
+									break;
+								}
+							}
+							
+							if(!foundReplacement) return false;
+						} else {
+							//player doesn't have exact number
+							// then just make sure that player has played any lower-order tuples
+							int remaining = currAmount;
+							
+							while(remaining >= 2) {
+								if(!tuplesPlayed.isEmpty()) {
+									//calculate the amount played for this round
+									int numPlayed = numCardsPlayed.get(0);
+									if(numPlayed > remaining) {
+										numPlayed = remaining;
+									}
+									
+									remaining -= numPlayed;
+									
+									//first update both the hand and played tuple
+									CardTuple tuple = tuplesPlayed.get(0);
+									tuple.amount -= numPlayed;
+									numCardsPlayed.set(0, numCardsPlayed.get(0) - numPlayed);
+									
+									//remove from hand tuples if needed
+									if(tuple.amount <= 1) {
+										//remove this tuple from hand tuples list because it's no longer a tuple
+										tuples.remove(tuple);
+									}
+									
+									//remove from played tuples if needed
+									if(numCardsPlayed.get(0) <= 1) {
+										//remove this tuple from played tuples because it's a single or gone completely
+										numCardsPlayed.remove(0);
+										tuplesPlayed.remove(0);
+									}
+								} else if(!tuples.isEmpty()) {
+									//player has tuples remaining but didn't play them
+									return false;
+								} else {
+									//no more tuples, so we're done here
+									break;
+								}
+							}
+						}
+					}
+				}
 			}
 			
 			//remove player's cards
@@ -318,7 +441,7 @@ class Trick {
 }
 
 //for this comparator, all cards must be the same suit
-class CardSuitWeightComparator implements Comparator {
+class CardSuitWeightComparator implements Comparator<Card> {
 	int trumpSuit;
 	int trumpValue;
 	
@@ -327,10 +450,7 @@ class CardSuitWeightComparator implements Comparator {
 		this.trumpValue = trumpValue;
 	}
 	
-	public int compare(Object o1, Object o2) {
-		Card a = (Card) o1;
-		Card b = (Card) o2;
-		
+	public int compare(Card a, Card b) {
 		if(a.gameSuit != Card.SUIT_TRUMP) { 
 			return a.value - b.value;
 		} else {
