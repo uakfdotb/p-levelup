@@ -410,6 +410,17 @@ public class Game {
 		}
 	}
 	
+	//returns the id of the winning player for a set of plays
+	public int compareField() {
+		int top_play = 0;
+		for(int i=1; i<plays.size(); i++) {
+			if(!(compareTrick( plays(top_play), plays(i) ))) {
+				top_play=i;
+			}
+		}
+		return (top_play+startingPlayer) % players.size();
+	}
+	
 	//returns milliseconds, maximum time to wait until next update
 	// only called for controller Game instance
 	public int update() {
