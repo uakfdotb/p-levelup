@@ -5,11 +5,17 @@ import java.util.Collections;
 import java.util.List;
 
 public class Player {
+	String name; //null designates no player
+	
 	Game game;
 	List<Card> hand;
 	int level;
 	
+	//round-dependent constants
+	int points;
+	
 	public Player(Game game) {
+		name = null;
 		this.game = game;
 		hand = new ArrayList<Card>();
 		level = 2;
