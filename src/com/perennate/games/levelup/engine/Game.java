@@ -12,6 +12,7 @@ public class Game {
 	public static int STATE_PLAYING = 3;
 	
 	boolean controller; //whether or not this instance is the server
+	List<GamePlayerListener> listeners;
 	
 	int numPlayers;
 	int numDecks;
@@ -51,6 +52,8 @@ public class Game {
 		for(int i = 0; i < numPlayers; i++) {
 			players.add(new Player(this));
 		}
+		
+		listeners = new ArrayList<GamePlayerListener>();
 	}
 	
 	public void init() {
@@ -58,6 +61,30 @@ public class Game {
 		deck = Card.getCards(numDecks);
 		bottom = new ArrayList<Card>();
 		bets = new ArrayList<Bet>();
+	}
+	
+	public boolean playerJoined(int id, String name) {
+		if(id >= 0 && id < players.size() && players.get(id).name == null) {
+			players.get(id).name = name;
+			
+			for(GamePlayerListener listener : listeners) {
+				listener.eventPlayerJoined(id, name);
+			}
+			
+			return true;
+		} else {
+			return false;
+		}
+	}
+	
+	public void playerLeft(int id) {
+		if(id >= 0 && id < players.size()) {
+			players.get(id).name = null;
+			
+			for(GamePlayerListener listener : listeners) {
+				listener.eventPlayerLeft(id);
+			}
+		}
 	}
 	
 	//make a card declaration (bet)
@@ -98,6 +125,11 @@ public class Game {
 			//this can be defended against if the first player has more of the same card
 			betCountDown = 0;
 			bets.add(new Bet(player, suit, amount));
+			
+			for(GamePlayerListener listener : listeners) {
+				listener.eventDeclare(player, suit, amount);
+			}
+			
 			return true;
 		} else {
 			return false;
@@ -113,6 +145,11 @@ public class Game {
 			if(bets.get(i).player == player) {
 				betCountDown = 0;
 				bets.remove(i);
+				
+				for(GamePlayerListener listener : listeners) {
+					listener.eventWithdrawDeclaration(player);
+				}
+				
 				return;
 			}
 		}
@@ -141,6 +178,10 @@ public class Game {
 			
 			while(bets.size() > betIndex) {
 				bets.remove(betIndex + 1);
+			}
+			
+			for(GamePlayerListener listener : listeners) {
+				listener.eventDefendDeclaration(player, amount);
 			}
 		}
 	}
@@ -184,6 +225,10 @@ public class Game {
 			//update information for this trick
 			trickCards = amount * cards.size();
 			openingPlay = new Trick(cards, amounts);
+
+			for(GamePlayerListener listener : listeners) {
+				listener.eventPlayCards(player, cards, amounts);
+			}
 			
 			return true;
 		} else if(player == nextPlayer) {
@@ -343,6 +388,10 @@ public class Game {
 					}
 				}
 			}
+
+			for(GamePlayerListener listener : listeners) {
+				listener.eventPlayCards(player, cards, amounts);
+			}
 			
 			//remove player's cards
 			players.get(player).removeCards(cards, amounts);
@@ -369,7 +418,7 @@ public class Game {
 			boolean trumpCheck = false;
 			for(int i=0; i < two.getCards().size(); i++) {
 				if(two.getCards().get(i).gameSuit != oneSuit && trumpCheck == false) {
-					if(trumpCheck == false && two.getCards().get(i).gameSuit == Card.SUIT_TRUMP){
+					if(trumpCheck == false && two.getCards().get(i).gameSuit == Card.SUIT_TRUMP) {
 						trumpCheck = true;
 					} else if (two.getCards().get(i).gameSuit != Card.SUIT_TRUMP && trumpCheck == true) {
 						return true;
@@ -384,7 +433,7 @@ public class Game {
 			if(two.getAmounts().size()>1) {
 				int j=0;
 				for(int i=0; i<two.getAmounts().size()-1; i++) {
-					if(two.getCards().get(j).value == ( two.getCards.get( j+two.getAmounts().get(i) ).value - 1 )) {
+					if(two.getCards().get(j).value == ( two.getCards().get( j+two.getAmounts().get(i) ).value - 1 )) {
 						j+=two.getAmounts().get(i);
 					} else {
 						//second hand is not a sequence
@@ -413,19 +462,60 @@ public class Game {
 	//returns the id of the winning player for a set of plays
 	public int compareField() {
 		int top_play = 0;
-		for(int i=1; i<plays.size(); i++) {
-			if(!(compareTrick( plays(top_play), plays(i) ))) {
-				top_play=i;
+		
+		for(int i = 1; i < plays.size(); i++) {
+			if(!(compareTrick(plays.get(top_play), plays.get(i)))) {
+				top_play = i;
 			}
 		}
-		return (top_play+startingPlayer) % players.size();
+		
+		return (top_play + startingPlayer) % players.size();
+	}
+	
+	//calculates the number of points on the field
+	public int fieldPoints() {
+		int points = 0;
+		
+		for(Trick trick : plays) {
+			for(int i = 0; i < trick.getCards().size(); i++) {
+				points += trick.getCards().get(i).getPoints() * trick.getAmounts().get(i);
+			}
+		}
+		
+		return points;
+	}
+	
+	//calculates the number of points in the bottom
+	public int bottomPoints() {
+		int points = 0;
+		
+		for(Card card : bottom) {
+			points += card.getPoints();
+		}
+		
+		return points;
+	}
+	
+	public void roundOver() {
+		
 	}
 	
 	//returns milliseconds, maximum time to wait until next update
-	// only called for controller Game instance
+	// or -1 to destroy this Game (if game is over or on error).
+	// should only called for controller Game instance
 	public int update() {
 		if(state == STATE_INIT) {
-			//create bottom
+			//check if we have all the players
+			for(int i = 0; i < players.size(); i++) {
+				if(players.get(i).name == null) {
+					//still waiting on more players
+					return 1000;
+				}
+			}
+			
+			//we have enough players
+			
+			//create the bottom
 			for(int i = 0; i < 6; i++) {
 				bottom.add(deck.remove(0));
 			}
@@ -461,7 +551,32 @@ public class Game {
 			
 			return 500;
 		} else if(state == STATE_PLAYING) {
-			
+			if(plays.size() == numPlayers) {
+				int winningPlayer = compareField();
+				
+				//give the winner points
+				players.get(winningPlayer).points += fieldPoints();
+				
+				plays.clear();
+				startingPlayer = (startingPlayer + 1) % players.size();
+				
+				if(players.get(0).hand.isEmpty()) {
+					//this round is over
+					//first give winner double the points on bottom
+					players.get(winningPlayer).points += bottomPoints() * 2;
+					
+					roundOver();
+					return -1;
+				}
+				
+				return 500;
+			} else {
+				return 500;
+			}
+		} else {
+			//error!
+			System.out.println("[GAME] Unknown state: " + state);
+			return -1;
 		}
 	}
 	

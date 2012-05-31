@@ -53,6 +53,13 @@ public class Card {
 		}
 	}
 	
+	//returns the points-value of this card
+	public int getPoints() {
+		if(value == 5) return 5;
+		else if(value == 10 || value == 13) return 10;
+		else return 0;
+	}
+	
 	public boolean equals(Object o) {
 		if(o instanceof Card) {
 			Card c = (Card) o;
