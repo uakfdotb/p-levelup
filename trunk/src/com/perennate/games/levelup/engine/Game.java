@@ -61,6 +61,10 @@ public class Game {
 		deck = Card.getCards(numDecks);
 		bottom = new ArrayList<Card>();
 		bets = new ArrayList<Bet>();
+		
+		for(Player player : players) {
+			player.init();
+		}
 	}
 	
 	public boolean playerJoined(int id, String name) {
@@ -497,7 +501,46 @@ public class Game {
 	}
 	
 	public void roundOver() {
+		//count total points on attacking side
+		int attackingPoints = 0;
+		for(Player player : players) {
+			attackingPoints += player.points;
+		}
 		
+		//negative is towards defending, positive is towards attacking, 0 switches sides
+		int winner;
+		
+		if(attackingPoints == 0) {
+			winner = -3;
+		} else {
+			winner = attackingPoints / (numDecks * 20) - 2;
+		}
+		
+		if(winner >= 0) {
+			//level up the appropriate amount
+			// also switch teams and update current level
+			for(Player player : players) {
+				if(!player.defending) {
+					player.levelUp(winner);
+					player.defending = !player.defending;
+					currentLevel = player.getLevel();
+				}
+			}
+			
+			//update dealer
+			currentDealer = (currentDealer + 1) % players.size();
+		} else {
+			//level up the appropriate amount and update current level
+			for(Player player : players) {
+				if(player.defending) {
+					player.levelUp(-winner);
+					currentLevel = player.getLevel();
+				}
+			}
+			
+			//update dealer
+			currentDealer = (currentDealer + 2) % players.size();
+		}
 	}
 	
 	//returns milliseconds, maximum time to wait until next update
@@ -558,7 +601,7 @@ public class Game {
 				players.get(winningPlayer).points += fieldPoints();
 				
 				plays.clear();
-				startingPlayer = (startingPlayer + 1) % players.size();
+				startingPlayer = winningPlayer;
 				
 				if(players.get(0).hand.isEmpty()) {
 					//this round is over

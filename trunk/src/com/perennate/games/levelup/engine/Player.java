@@ -13,12 +13,18 @@ public class Player {
 	
 	//round-dependent constants
 	int points;
+	boolean defending;
 	
 	public Player(Game game) {
 		name = null;
 		this.game = game;
 		hand = new ArrayList<Card>();
 		level = 2;
+		defending = false;
+	}
+	
+	public void init() {
+		points = 0;
 	}
 	
 	public void addCard(Card card) {
@@ -125,7 +131,7 @@ public class Player {
 		return level;
 	}
 	
-	public void levelUp() {
-		level++;
+	public void levelUp(int amount) {
+		level += amount;
 	}
 }
