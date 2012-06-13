@@ -134,4 +134,8 @@ public class Player {
 	public void levelUp(int amount) {
 		level += amount;
 	}
+	
+	public String getName() {
+		return name;
+	}
 }

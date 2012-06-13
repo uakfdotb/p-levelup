@@ -54,10 +54,13 @@ public class Game {
 		}
 		
 		listeners = new ArrayList<GamePlayerListener>();
+		
+		currentDealer = 0;
+		init();
 	}
 	
 	public void init() {
-		state = STATE_INIT;
+		setState(STATE_INIT);
 		deck = Card.getCards(numDecks);
 		bottom = new ArrayList<Card>();
 		bets = new ArrayList<Bet>();
@@ -65,6 +68,24 @@ public class Game {
 		for(Player player : players) {
 			player.init();
 		}
+		
+		currentLevel = players.get(currentDealer).getLevel();
+	}
+	
+	public void setState(int newState) {
+		state = newState;
+		
+		for(GamePlayerListener listener : listeners) {
+			listener.eventGameStateChange(state);
+		}
+	}
+	
+	public void addListener(GamePlayerListener listener) {
+		listeners.add(listener);
+	}
+	
+	public void removeListener(GamePlayerListener listener) {
+		listeners.remove(listener);
 	}
 	
 	public boolean playerJoined(int id, String name) {
@@ -142,8 +163,8 @@ public class Game {
 	
 	//withdraw a bet
 	//only legal if it has been overturned
-	public void withdrawDeclaration(int player) {
-		if(state != STATE_DEALING && state != STATE_BETTING) return;
+	public boolean withdrawDeclaration(int player) {
+		if(state != STATE_DEALING && state != STATE_BETTING) return false;
 		
 		for(int i = 0; i < bets.size() - 1; i++) {
 			if(bets.get(i).player == player) {
@@ -154,13 +175,15 @@ public class Game {
 					listener.eventWithdrawDeclaration(player);
 				}
 				
-				return;
+				return true;
 			}
 		}
+		
+		return false;
 	}
 	
-	public void defendDeclaration(int player, int amount) {
-		if(state != STATE_DEALING && state != STATE_BETTING) return;
+	public boolean defendDeclaration(int player, int amount) {
+		if(state != STATE_DEALING && state != STATE_BETTING) return false;
 		
 		//look for the previous declaration
 		Bet bet = null;
@@ -173,7 +196,7 @@ public class Game {
 			}
 		}
 		
-		if(bet == null) return;
+		if(bet == null) return false;
 		
 		if(amount >= bets.get(bets.size() - 1).getAmount() && (!controller || players.get(player).countCards(new Card(currentLevel, bet.suit)) >= amount)) {
 			//this is acceptable, delete all bets after the found one
@@ -187,6 +210,10 @@ public class Game {
 			for(GamePlayerListener listener : listeners) {
 				listener.eventDefendDeclaration(player, amount);
 			}
+			
+			return true;
+		} else {
+			return false;
 		}
 	}
 	
@@ -507,7 +534,7 @@ public class Game {
 			attackingPoints += player.points;
 		}
 		
-		//negative is towards defending, positive is towards attacking, 0 switches sides
+		//negative is towards defending, positive is towards attacking, >=0 switches sides
 		int winner;
 		
 		if(attackingPoints == 0) {
@@ -518,13 +545,13 @@ public class Game {
 		
 		if(winner >= 0) {
 			//level up the appropriate amount
-			// also switch teams and update current level
+			// also switch teams
 			for(Player player : players) {
 				if(!player.defending) {
 					player.levelUp(winner);
-					player.defending = !player.defending;
-					currentLevel = player.getLevel();
 				}
+				
+				player.defending = !player.defending; //switch teams
 			}
 			
 			//update dealer
@@ -534,13 +561,20 @@ public class Game {
 			for(Player player : players) {
 				if(player.defending) {
 					player.levelUp(-winner);
-					currentLevel = player.getLevel();
 				}
 			}
 			
 			//update dealer
 			currentDealer = (currentDealer + 2) % players.size();
 		}
+	}
+	
+	public boolean gameOver() {
+		for(Player player : players) {
+			if(player.level == 16) return true;
+		}
+		
+		return false;
 	}
 	
 	//returns milliseconds, maximum time to wait until next update
@@ -563,11 +597,12 @@ public class Game {
 				bottom.add(deck.remove(0));
 			}
 			
-			state = STATE_DEALING;
+			lastPlayerDealt = (currentDealer - 1) % players.size();
+			setState(STATE_DEALING);
 			return 1000;
 		} else if(state == STATE_DEALING) {
 			if(deck.size() == 0) {
-				state = STATE_BETTING;
+				setState(STATE_BETTING);
 				return 1000;
 			} else {
 				//deal card to the next player
@@ -575,6 +610,12 @@ public class Game {
 				Player player = players.get(lastPlayerDealt);
 				Card card = deck.remove(0);
 				player.addCard(card);
+				
+				for(GamePlayerListener listener : listeners) {
+					if(listener.getPlayer() == lastPlayerDealt) {
+						listener.eventDealtCard(card);
+					}
+				}
 				
 				return 500;
 			}
@@ -586,11 +627,16 @@ public class Game {
 					player.calculateGameSuit(trumpSuit, currentLevel);
 				}
 				
-				state = STATE_PLAYING;
+				setState(STATE_PLAYING);
 				plays = new ArrayList<Trick>();
 			}
-			else
+			else {
 				betCountDown++;
+				
+				for(GamePlayerListener listener : listeners) {
+					listener.eventUpdateBetCounter(betCountDown);
+				}
+			}
 			
 			return 500;
 		} else if(state == STATE_PLAYING) {
@@ -625,6 +671,14 @@ public class Game {
 	
 	public int getCurrentLevel() {
 		return currentLevel;
+	}
+	
+	public Player getPlayer(int i) {
+		return players.get(i);
+	}
+	
+	public void setBetCounter(int newCounter) {
+		betCountDown = newCounter;
 	}
 }
 

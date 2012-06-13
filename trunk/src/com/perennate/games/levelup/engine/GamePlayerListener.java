@@ -12,4 +12,7 @@ public interface GamePlayerListener {
 	public void eventWithdrawDeclaration(int pid);
 	public void eventDefendDeclaration(int pid, int amount);
 	public void eventPlayCards(int pid, List<Card> cards, List<Integer> amounts);
+	
+	public void eventDealtCard(Card card);
+	public void eventUpdateBetCounter(int newCounter);
 }
