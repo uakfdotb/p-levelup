@@ -60,6 +60,14 @@ public class Card {
 		else return 0;
 	}
 	
+	public int getValue() {
+		return value;
+	}
+	
+	public int getSuit() {
+		return suit;
+	}
+	
 	public boolean equals(Object o) {
 		if(o instanceof Card) {
 			Card c = (Card) o;
@@ -67,6 +75,10 @@ public class Card {
 			if(value == c.value && suit == c.suit) return true;
 			else return false;
 		} else return false;
+	}
+	
+	public String toString() {
+		return getValueString(value) + getSuitString(suit);
 	}
 	
 	public static List<Card> getCards(int numDecks) {
@@ -109,6 +121,77 @@ public class Card {
 		}
 		
 		return num;
+	}
+	
+	public static String getValueString(int value) {
+		String valStr;
+		
+		if(value == 2) valStr = "2";
+		else if(value == 3) valStr = "3";
+		else if(value == 4) valStr = "4";
+		else if(value == 5) valStr = "5";
+		else if(value == 6) valStr = "6";
+		else if(value == 7) valStr = "7";
+		else if(value == 8) valStr = "8";
+		else if(value == 9) valStr = "9";
+		else if(value == 10) valStr = "10";
+		else if(value == 11) valStr = "J";
+		else if(value == 12) valStr = "Q";
+		else if(value == 13) valStr = "K";
+		else if(value == 14) valStr = "A";
+		else if(value == 15) valStr = "?-";
+		else if(value == 16) valStr = "?+";
+		else valStr = "??";
+		
+		return valStr;
+	}
+	
+	public static int getValueInt(String valueStr) {
+		int value;
+
+		if(valueStr.equals("2")) value = 2;
+		else if(valueStr.equals("3")) value = 3;
+		else if(valueStr.equals("4")) value = 4;
+		else if(valueStr.equals("5")) value = 5;
+		else if(valueStr.equals("6")) value = 6;
+		else if(valueStr.equals("7")) value = 7;
+		else if(valueStr.equals("8")) value = 8;
+		else if(valueStr.equals("9")) value = 9;
+		else if(valueStr.equals("10")) value = 10;
+		else if(valueStr.equals("J")) value = 11;
+		else if(valueStr.equals("Q")) value = 12;
+		else if(valueStr.equals("K")) value = 13;
+		else if(valueStr.equals("A")) value = 14;
+		else if(valueStr.equals("?-")) value = 15;
+		else if(valueStr.equals("?+")) value = 16;
+		else value = 0;
+		
+		return value;
+	}
+	
+	public static String getSuitString(int suit) {
+		String suitStr;
+		
+		if(suit == SUIT_CLUBS) suitStr = "C";
+		else if(suit == SUIT_DIAMONDS) suitStr = "D";
+		else if(suit == SUIT_HEARTS) suitStr = "H";
+		else if(suit == SUIT_SPADES) suitStr = "S";
+		else suitStr = "?";
+		
+		return suitStr;
+	}
+	
+	public static int getSuitInt(String suitStr) {
+		int suit;
+
+		if(suitStr.equals("C")) suit = SUIT_CLUBS;
+		else if(suitStr.equals("D")) suit = SUIT_DIAMONDS;
+		else if(suitStr.equals("H")) suit = SUIT_HEARTS;
+		else if(suitStr.equals("S")) suit = SUIT_SPADES;
+		else if(suitStr.equals("T")) suit = SUIT_TRUMP;
+		else suit = SUIT_NONE;
+		
+		return suit;
 	}
 }
 
