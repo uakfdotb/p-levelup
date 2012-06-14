@@ -179,6 +179,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 	public GameConnection(GameHost host, Socket socket, Game game) {
 		this.host = host;
 		this.socket = socket;
+		this.game = game;
 		pid = -1;
 		terminated = false;
 		
@@ -235,23 +236,23 @@ class GameConnection extends Thread implements GamePlayerListener {
 						
 						synchronized(game) {
 							declareSuccess = game.declare(pid, suit, amount);
+							
+							if(!declareSuccess)
+								sendPlayError("Declaration failed");
+							else
+								game.notifyAll();
 						}
-						
-						if(!declareSuccess)
-							sendPlayError("Declaration failed");
-						else
-							game.notifyAll();
 					} else if(identifier == PACKET_WITHDRAWDECLARATION) {
 						boolean withdrawSuccess;
 						
 						synchronized(game) {
 							withdrawSuccess = game.withdrawDeclaration(pid);
+							
+							if(!withdrawSuccess)
+								sendPlayError("Withdraw failed");
+							else
+								game.notifyAll();
 						}
-						
-						if(!withdrawSuccess)
-							sendPlayError("Withdraw failed");
-						else
-							game.notifyAll();
 					} else if(identifier == PACKET_DEFENDDECLARATION) {
 						int amount = in.readInt();
 						
@@ -259,12 +260,12 @@ class GameConnection extends Thread implements GamePlayerListener {
 						
 						synchronized(game) {
 							defendSuccess = game.defendDeclaration(pid, amount);
+							
+							if(!defendSuccess)
+								sendPlayError("Defend failed");
+							else
+								game.notifyAll();
 						}
-						
-						if(!defendSuccess)
-							sendPlayError("Defend failed");
-						else
-							game.notifyAll();
 					} else if(identifier == PACKET_PLAYCARDS) {
 						int numCards = in.readInt();
 						List<Card> cards = new ArrayList<Card>(numCards);
@@ -286,12 +287,12 @@ class GameConnection extends Thread implements GamePlayerListener {
 						
 						synchronized(game) {
 							playSuccess = game.playTrick(pid, cards, amounts);
+							
+							if(!playSuccess)
+								sendPlayError("Play failed");
+							else
+								game.notifyAll();
 						}
-						
-						if(!playSuccess)
-							sendPlayError("Play failed");
-						else
-							game.notifyAll();
 					} else {
 						println("Unkwown packet received (joined), id=" + identifier);
 						break;
