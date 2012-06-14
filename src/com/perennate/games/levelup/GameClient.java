@@ -76,6 +76,10 @@ public class GameClient extends Thread {
 		String reason = "unknown";
 		
 		while(true) {
+			if(game.getState() == Game.STATE_PLAYING && pid == game.getNextPlayer()) {
+				LevelUp.println("[GameClient] It is now your turn.");
+			}
+			
 			try {
 				int header = in.read();
 				

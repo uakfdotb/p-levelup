@@ -56,28 +56,37 @@ public class LevelUp {
 				while((line = in.readLine()) != null) {
 					String[] parts = line.split(" ");
 					
-					if(parts[0].equals("declare")) {
-						int suit = Card.getSuitInt(parts[1]);
-						int amount = Integer.parseInt(parts[2]);
-						client.sendDeclare(suit, amount);
-					} else if(parts[0].equals("withdraw")) {
-						client.sendWithdrawDeclaration();
-					} else if(parts[0].equals("defend")) {
-						int amount = Integer.parseInt(parts[1]);
-						client.sendDefendDeclaration(amount);
-					} else if(parts[0].equals("select")) {
-						int suit = Card.getSuitInt(parts[1]);
-						int value = Card.getValueInt(parts[2]);
-						int amount = Integer.parseInt(parts[3]);
-						selectedCards.add(new Card(value, suit));
-						selectedAmounts.add(amount);
-					} else if(parts[0].equals("qselect")) {
-						for(int i = 0; i < selectedCards.size(); i++) {
-							
+					try {
+						if(parts[0].equals("declare")) {
+							int suit = Card.getSuitInt(parts[1]);
+							int amount = Integer.parseInt(parts[2]);
+							client.sendDeclare(suit, amount);
+						} else if(parts[0].equals("withdraw")) {
+							client.sendWithdrawDeclaration();
+						} else if(parts[0].equals("defend")) {
+							int amount = Integer.parseInt(parts[1]);
+							client.sendDefendDeclaration(amount);
+						} else if(parts[0].equals("select")) {
+							int suit = Card.getSuitInt(parts[1]);
+							int value = Card.getValueInt(parts[2]);
+							int amount = Integer.parseInt(parts[3]);
+							selectedCards.add(new Card(value, suit));
+							selectedAmounts.add(amount);
+						} else if(parts[0].equals("qselect")) {
+							System.out.println("you have selected:");
+							for(int i = 0; i < selectedCards.size(); i++) {
+								System.out.println("\t" + selectedAmounts.get(i) + " " + selectedCards.get(i));
+							}
+						} else if(parts[0].equals("clear")) {
+							selectedCards.clear();
+							selectedAmounts.clear();
+						} else if(parts[0].equals("play")) {
+							client.sendPlayCards(selectedCards, selectedAmounts);
+							selectedCards.clear();
+							selectedAmounts.clear();
 						}
-					} else if(parts[0].equals("clear")) {
-						selectedCards.clear();
-						selectedAmounts.clear();
+					} catch(Exception e) {
+						e.printStackTrace();
 					}
 				}
 			} catch(IOException ioe) {

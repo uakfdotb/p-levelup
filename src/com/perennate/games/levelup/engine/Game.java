@@ -5,6 +5,8 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import com.perennate.games.levelup.LevelUp;
+
 public class Game {
 	public static int STATE_INIT = 0;
 	public static int STATE_DEALING = 1;
@@ -64,6 +66,7 @@ public class Game {
 		deck = Card.getCards(numDecks);
 		bottom = new ArrayList<Card>();
 		bets = new ArrayList<Bet>();
+		plays = new ArrayList<Trick>();
 		
 		for(Player player : players) {
 			player.init();
@@ -72,8 +75,17 @@ public class Game {
 		currentLevel = players.get(currentDealer).getLevel();
 	}
 	
+	public void println(String message) {
+		LevelUp.println("[Game] " + message);
+	}
+	
 	public void setState(int newState) {
 		state = newState;
+		
+		if(state == STATE_PLAYING) {
+			nextPlayer = bets.get(bets.size() - 1).player;
+			startingPlayer = nextPlayer;
+		}
 		
 		for(GamePlayerListener listener : listeners) {
 			listener.eventGameStateChange(state);
@@ -117,7 +129,8 @@ public class Game {
 	public boolean declare(int player, int suit, int amount) {
 		if(state != STATE_DEALING && state != STATE_BETTING) return false;
 		
-		if(amount > bets.get(bets.size() - 1).getAmount() && (!controller || players.get(player).countCards(new Card(currentLevel, suit)) >= amount)) {
+		if((bets.isEmpty() || amount > bets.get(bets.size() - 1).getAmount())
+				&& (!controller || players.get(player).countCards(new Card(currentLevel, suit)) >= amount)) {
 			//also make sure that the player has not already made a bet
 			// in this case it is valid if another player has bet in between
 			//and this bet must have a different suit
@@ -220,13 +233,20 @@ public class Game {
 	//cards is a list of unique cards
 	//amount is the number of each unique card played
 	public boolean playTrick(int player, List<Card> cards, List<Integer> amounts) {
-		if(cards.isEmpty() || amounts.size() != cards.size()) return false;
+		println("Player " + player + " is attempting to play a trick.");
+		
+		if(cards.isEmpty() || amounts.size() != cards.size()) {
+			return false;
+		}
 		
 		if(player == startingPlayer && player == nextPlayer && plays.size() == 0) {
 			//first, amounts of each card must be equal
 			int amount = amounts.get(0);
 			for(Integer x : amounts) {
-				if(x != amount) return false;
+				if(x != amount) {
+					println("Played card amounts are not equal.");
+					return false;
+				}
 			}
 			
 			//suit must be same
@@ -235,9 +255,16 @@ public class Game {
 			int suit = cards.get(0).gameSuit;
 			
 			for(Card card : cards) {
-				if(card.gameSuit != suit) return false;
+				if(card.gameSuit != suit) {
+					println("Played cards are of different suits.");
+					return false;
+				}
+				
 				//search player's hand
-				else if(!controller || players.get(player).countCards(card) < amount) return false;
+				else if(controller && players.get(player).countCards(card) < amount) {
+					println("Played cards are not in player's hand.");
+					return false;
+				}
 			}
 			
 			//if there's multiple cards, they must be consecutive
@@ -245,6 +272,7 @@ public class Game {
 			
 			for(int i = 0; i < cards.size() - 1; i++) {
 				if(cards.get(i).value != cards.get(i + 1).value - 1) {
+					println("Played cards are not consecutive.");
 					return false;
 				}
 			}
@@ -252,6 +280,9 @@ public class Game {
 			//seems alright
 			//remove player's cards
 			players.get(player).removeCards(cards, amounts);
+			
+			//add to plays for this trick
+			plays.add(new Trick(cards, amounts));
 			
 			//update information for this trick
 			trickCards = amount * cards.size();
@@ -261,11 +292,24 @@ public class Game {
 				listener.eventPlayCards(player, cards, amounts);
 			}
 			
+			//calculate the next player
+			nextPlayer = (nextPlayer + 1) % players.size();
+			
 			return true;
 		} else if(player == nextPlayer) {
 			if(controller) {
 				int trickSuit = openingPlay.getCards().get(0).gameSuit;
 				int trickAmount = openingPlay.getAmounts().get(0);
+				
+				//make sure player has the cards
+				if(controller) {
+					for(int i = 0; i < cards.size(); i++) {
+						if(players.get(player).countCards(cards.get(i)) < amounts.get(i)) {
+							println("Played cards are not in player's hand.");
+							return false;
+						}
+					}
+				}
 				
 				//match previous play
 				//same number of cards
@@ -274,7 +318,10 @@ public class Game {
 					totalCards += x;
 				}
 				
-				if(totalCards != trickCards) return false;
+				if(totalCards != trickCards) {
+					println("Number of played cards does not equal opening trick size.");
+					return false;
+				}
 				
 				//match suit if possible
 				int suitTotal = players.get(player).countSuit(trickSuit);
@@ -289,7 +336,10 @@ public class Game {
 				//if total cards in suit that player played is not
 				// equal to the total cards in suit or the total trick
 				// cards, then this in an invalid play
-				if(totalSuitCards != suitTotal && totalSuitCards != trickCards) return false;
+				if(totalSuitCards != suitTotal && totalSuitCards != trickCards) {
+					println("Played cards do not follow suit.");
+					return false;
+				}
 				
 				//follow doubles and triples if possible
 				// this only applies if the player has not exhausted the suit
@@ -297,6 +347,7 @@ public class Game {
 					//first make sure player isn't avoiding playing the enter combination
 					if(players.get(player).searchTrick(trickSuit, openingPlay.getAmounts())) {
 						if(!amounts.equals(openingPlay.getAmounts())) {
+							println("Played cards avoids playing combination.");
 							return false;
 						} else {
 							//order the cards because player has played entire combination so might beat it
@@ -373,7 +424,10 @@ public class Game {
 									}
 								}
 								
-								if(!foundReplacement) return false;
+								if(!foundReplacement) {
+									println("Player did not play replacement for the cards appropriately.");
+									return false;
+								}
 							} else {
 								//player doesn't have exact number
 								// then just make sure that player has played any lower-order tuples
@@ -408,6 +462,7 @@ public class Game {
 										}
 									} else if(!tuples.isEmpty()) {
 										//player has tuples remaining but didn't play them
+										println("Played cards do not follow tuples.");
 										return false;
 									} else {
 										//no more tuples, so we're done here
@@ -432,8 +487,30 @@ public class Game {
 			
 			//calculate the next player
 			nextPlayer = (nextPlayer + 1) % players.size();
+			
+			//check if this play is over, or maybe even the round
+			if(plays.size() == numPlayers) {
+				int winningPlayer = compareField();
+				
+				//give the winner points
+				players.get(winningPlayer).points += fieldPoints();
+				
+				plays.clear();
+				startingPlayer = winningPlayer;
+				nextPlayer = winningPlayer;
+				
+				if(players.get(0).hand.isEmpty()) {
+					//this round is over
+					//first give winner double the points on bottom
+					players.get(winningPlayer).points += bottomPoints() * 2;
+					
+					roundOver();
+				}
+			}
+			
 			return true;
 		} else {
+			println("It's not the player's turn!");
 			return false;
 		}
 	}
@@ -617,18 +694,18 @@ public class Game {
 					}
 				}
 				
-				return 500;
+				return 100;
 			}
 		} else if(state == STATE_BETTING) {
 			if((!bets.isEmpty() && betCountDown >= 20) || (bets.size() == 1 && bets.get(0).amount == numDecks)) {
-				trumpSuit = bets.get(bets.size() - 1).suit;
+				Bet winningBet = bets.get(bets.size() - 1);
+				trumpSuit = winningBet.suit;
 				
 				for(Player player : players) {
 					player.calculateGameSuit(trumpSuit, currentLevel);
 				}
 				
 				setState(STATE_PLAYING);
-				plays = new ArrayList<Trick>();
 			}
 			else {
 				betCountDown++;
@@ -640,28 +717,7 @@ public class Game {
 			
 			return 500;
 		} else if(state == STATE_PLAYING) {
-			if(plays.size() == numPlayers) {
-				int winningPlayer = compareField();
-				
-				//give the winner points
-				players.get(winningPlayer).points += fieldPoints();
-				
-				plays.clear();
-				startingPlayer = winningPlayer;
-				
-				if(players.get(0).hand.isEmpty()) {
-					//this round is over
-					//first give winner double the points on bottom
-					players.get(winningPlayer).points += bottomPoints() * 2;
-					
-					roundOver();
-					return -1;
-				}
-				
-				return 500;
-			} else {
-				return 500;
-			}
+			return 500;
 		} else {
 			//error!
 			System.out.println("[GAME] Unknown state: " + state);
@@ -679,6 +735,18 @@ public class Game {
 	
 	public void setBetCounter(int newCounter) {
 		betCountDown = newCounter;
+	}
+	
+	public int getNextPlayer() {
+		return nextPlayer;
+	}
+	
+	public int getStartingPlayer() {
+		return startingPlayer;
+	}
+	
+	public int getState() {
+		return state;
 	}
 }
 

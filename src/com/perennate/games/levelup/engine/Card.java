@@ -27,11 +27,11 @@ public class Card {
 	
 	//create card based on a unique ID
 	public Card(int id) {
-		if(id == 53 || id == 54) {
-			value = id - 38;
+		if(id == 52 || id == 53) {
+			value = id - 37;
 			suit = SUIT_TRUMP;
 		} else {
-			value = id % 13;
+			value = id % 13 + 2;
 			suit = id / 13;
 		}
 	}
@@ -176,6 +176,7 @@ public class Card {
 		else if(suit == SUIT_DIAMONDS) suitStr = "D";
 		else if(suit == SUIT_HEARTS) suitStr = "H";
 		else if(suit == SUIT_SPADES) suitStr = "S";
+		else if(suit == SUIT_TRUMP) suitStr = "T";
 		else suitStr = "?";
 		
 		return suitStr;
