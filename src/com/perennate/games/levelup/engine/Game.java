@@ -758,8 +758,25 @@ public class Game {
 			
 			//we have enough players
 			
+			//calculate the number of cards to put on bottom
+			//currently, to do this, we start be calculating the number
+			// of extra cards that will be remaining after splitting
+			// the deck among all of the players during dealing.
+			//then, we add the number of players until we arrive at
+			// a number just strictly less than ten.
+			//there can't be zero in the bottom though
+			int numBottomCards = deck.size() % players.size();
+			
+			while(numBottomCards + players.size() < 10) {
+				numBottomCards += players.size();
+			}
+			
+			if(numBottomCards == 0) numBottomCards = players.size();
+			
+			LevelUp.debug("[Game] Putting " + numBottomCards + " on the bottom for " + players.size() + " players and " + deck.size() + " cards");
+			
 			//create the bottom
-			for(int i = 0; i < 6; i++) {
+			for(int i = 0; i < numBottomCards; i++) {
 				bottom.add(deck.remove(0));
 			}
 			
@@ -788,8 +805,7 @@ public class Game {
 		} else if(state == STATE_BETTING) {
 			if((!bets.isEmpty() && betCountDown >= 20) || (bets.size() == 1 && bets.get(0).amount == numDecks)) {
 				setState(STATE_PLAYING);
-			}
-			else {
+			} else {
 				betCountDown++;
 				
 				for(GamePlayerListener listener : listeners) {
