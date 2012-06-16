@@ -559,6 +559,14 @@ public class Game {
 					//first give winner double the points on bottom
 					players.get(winningPlayer).points += bottomPoints() * 2;
 					
+					//if we are the controller, we have to make sure that
+					// all clients have the bottom cards before the above
+					// code is executed so that everyone remains in sync.
+					//so we call all our listeners here
+					for(GamePlayerListener listener : listeners) {
+						listener.eventBottom(bottom);
+					}
+					
 					roundOver();
 				}
 			}
@@ -590,7 +598,7 @@ public class Game {
 			int oneSuit = one.getCards().get(0).gameSuit;
 			int twoSuit = two.getCards().get(0).gameSuit;
 			
-			if(oneSuit != twoSuit) {
+			if(oneSuit != twoSuit && twoSuit != Card.SUIT_TRUMP) {
 				LevelUp.debug("[Game] compareTrick: true because two's cards do not match one's");
 				return true;
 			}
@@ -868,6 +876,10 @@ public class Game {
 		Card card = new Card(suit, value);
 		card.calculateGameSuit(trumpSuit, currentLevel);
 		return card;
+	}
+	
+	public void setBottom(List<Card> bottom) {
+		this.bottom = bottom;
 	}
 }
 

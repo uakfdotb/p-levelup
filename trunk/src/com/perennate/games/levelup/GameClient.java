@@ -29,6 +29,7 @@ public class GameClient extends Thread {
 	public static int PACKET_DEALTCARD = 10;
 	public static int PACKET_UPDATEBETCOUNTER = 11;
 	public static int PACKET_UPDATEROUNDOVERCOUNTER = 12;
+	public static int PACKET_BOTTOM = 13;
 	
 	Socket socket;
 	DataInputStream in;
@@ -203,6 +204,18 @@ public class GameClient extends Thread {
 					game.setRoundOverCounter(newCounter);
 					
 					LevelUp.println("[GameClient] Next round starts in " + newCounter);
+				} else if(identifier == PACKET_BOTTOM) {
+					int numCards = in.readInt();
+					
+					List<Card> cards = new ArrayList<Card>(numCards);
+					
+					for(int i = 0; i < numCards; i++) {
+						int suit = in.readInt();
+						int value = in.readInt();
+						cards.add(game.constructCard(suit, value));
+					}
+					
+					game.setBottom(cards);
 				} else {
 					reason = "unknown packet received from server, id=" + identifier;
 					break;
