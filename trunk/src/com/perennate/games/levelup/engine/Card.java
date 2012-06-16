@@ -92,7 +92,7 @@ public class Card {
 		List<Card> deck = new ArrayList<Card>();
 		
 		for(int k = 0; k < numDecks; k++) {
-			for(int i = 0; i < 54; i++) {
+			for(int i = 0; i < 10; i++) {
 				deck.add(new Card(i));
 			}
 		}

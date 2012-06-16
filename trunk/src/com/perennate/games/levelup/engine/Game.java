@@ -519,10 +519,6 @@ public class Game {
 					}
 				}
 			}
-
-			for(GamePlayerListener listener : listeners) {
-				listener.eventPlayCards(player, cards, amounts);
-			}
 			
 			//remove player's cards
 			players.get(player).removeCards(cards, amounts);
@@ -571,6 +567,13 @@ public class Game {
 				}
 			}
 			
+			//make sure to update listeners last because we
+			// might have had to notify them about the bottom
+			// before this
+			for(GamePlayerListener listener : listeners) {
+				listener.eventPlayCards(player, cards, amounts);
+			}
+			
 			return true;
 		} else {
 			println("It's not the player's turn!");
@@ -583,16 +586,6 @@ public class Game {
 	//If amount isn't the same, then the first trick wins.
 	//True means first trick is better
 	public boolean compareTrick(Trick one, Trick two) {
-		LevelUp.debug("one");
-		for(int i = 0; i < one.getCards().size(); i++) {
-			LevelUp.debug("\t" + one.getAmounts().get(i) + " of " + one.getCards().get(i));
-		}
-		
-		LevelUp.debug("two");
-		for(int i = 0; i < two.getCards().size(); i++) {
-			LevelUp.debug("\t" + two.getAmounts().get(i) + " of " + two.getCards().get(i));
-		}
-		
 		if(one.getAmounts().equals(two.getAmounts())) {
 			//check that all the suits in two match
 			int oneSuit = one.getCards().get(0).gameSuit;
@@ -699,6 +692,8 @@ public class Game {
 		} else {
 			winner = attackingPoints / (numDecks * 20) - 2;
 		}
+		
+		LevelUp.debug("[Game] Winner is " + winner + " (attacking got " + attackingPoints + " points)");
 		
 		//level up the appropriate amount
 		//current level for the next round will be set in init()
