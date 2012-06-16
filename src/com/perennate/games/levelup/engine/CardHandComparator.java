@@ -16,10 +16,10 @@ public class CardHandComparator implements Comparator<Card> {
 		boolean aTrump = a.isTrump(trumpSuit, trumpValue);
 		boolean bTrump = b.isTrump(trumpSuit, trumpValue);
 		
-		if(a.suit != b.suit) {
+		if(a.suit != b.suit || aTrump != bTrump) {
 			if(aTrump && !bTrump) return -1;
 			else if(!aTrump && bTrump) return 1;
-			else if(!aTrump && !bTrump)	return (a.suit - b.suit) * 13;
+			else if(!aTrump && !bTrump)	return a.suit - b.suit;
 		}
 		
 		//they are in the same suit

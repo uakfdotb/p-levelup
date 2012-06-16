@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.perennate.games.levelup.engine.Card;
+import com.perennate.games.levelup.engine.CardHandComparator;
 
 public class LevelUp {
 	public static int LEVELUP_VERSION = 0;
@@ -70,7 +71,7 @@ public class LevelUp {
 							int suit = Card.getSuitInt(parts[1]);
 							int value = Card.getValueInt(parts[2]);
 							int amount = Integer.parseInt(parts[3]);
-							selectedCards.add(new Card(value, suit));
+							selectedCards.add(new Card(suit, value));
 							selectedAmounts.add(amount);
 						} else if(parts[0].equals("qselect")) {
 							System.out.println("you have selected:");
@@ -107,6 +108,24 @@ public class LevelUp {
 			} catch(IOException ioe) {
 				System.out.println("[Main] Output to " + logTarget + " failed; disabling");
 				logTarget = null;
+			}
+		}
+	}
+	
+	public static void debug(String message) {
+		if(DEBUG) {
+			System.out.println(message);
+			
+			//output to file
+			if(logTarget != null) {
+				try {
+					PrintWriter out = new PrintWriter(new FileWriter(logTarget));
+					out.println(message);
+					out.close();
+				} catch(IOException ioe) {
+					System.out.println("[Main] Output to " + logTarget + " failed; disabling");
+					logTarget = null;
+				}
 			}
 		}
 	}
