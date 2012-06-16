@@ -165,7 +165,8 @@ class GameConnection extends Thread implements GamePlayerListener {
 	public static int PACKET_PLAYERROR = 9;
 	public static int PACKET_DEALTCARD = 10;
 	public static int PACKET_UPDATEBETCOUNTER = 11;
-	public static int PACKET_UPDATEROUNDOVERCOUNTER= 14;
+	public static int PACKET_UPDATEROUNDOVERCOUNTER = 12;
+	public static int PACKET_BOTTOM = 13;
 	
 	GameHost host;
 	
@@ -512,6 +513,25 @@ class GameConnection extends Thread implements GamePlayerListener {
 				out.write(PACKET_HEADER);
 				out.write(PACKET_UPDATEBETCOUNTER);
 				out.writeInt(newCounter);
+			} catch(IOException ioe) {
+				terminate();
+			}
+		}
+	}
+	
+	public void eventBottom(List<Card> cards) {
+		if(!socket.isConnected()) return;
+		
+		synchronized(out) {
+			try {
+				out.write(PACKET_HEADER);
+				out.write(PACKET_BOTTOM);
+				out.writeInt(cards.size());
+				
+				for(Card card : cards) {
+					out.writeInt(card.getSuit());
+					out.writeInt(card.getValue());
+				}
 			} catch(IOException ioe) {
 				terminate();
 			}
