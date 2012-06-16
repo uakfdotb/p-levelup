@@ -19,7 +19,7 @@ public class Card {
 	//in this case, the trump value and suit are all represented by SUIT_TRUMP
 	int gameSuit;
 	
-	public Card(int value, int suit) {
+	public Card(int suit, int value) {
 		this.value = value;
 		this.suit = suit;
 		gameSuit = suit;
@@ -34,6 +34,8 @@ public class Card {
 			value = id % 13 + 2;
 			suit = id / 13;
 		}
+		
+		gameSuit = suit;
 	}
 	
 	public boolean isTrump(int trumpSuit, int trumpValue) {
@@ -41,7 +43,7 @@ public class Card {
 	}
 	
 	public int getTrumpWeight(int trumpSuit, int trumpValue) {
-		if(!isTrump(trumpSuit, trumpValue)) return -1;
+		if(!isTrump(trumpSuit, trumpValue)) return value;
 		else {
 			if(value == 15 || value == 16) return value + 2;
 			else if(value == trumpValue) {
@@ -77,6 +79,11 @@ public class Card {
 		} else return false;
 	}
 	
+	public void calculateGameSuit(int trumpSuit, int trumpValue) {
+		if(suit == trumpSuit || value == trumpValue) gameSuit = Card.SUIT_TRUMP;
+		else gameSuit = suit;
+	}
+	
 	public String toString() {
 		return getValueString(value) + getSuitString(suit);
 	}
@@ -106,8 +113,7 @@ public class Card {
 	
 	public static void calculateGameSuit(int trumpSuit, int trumpValue, List<Card> array) {
 		for(Card card : array) {
-			if(card.suit == trumpSuit || card.value == trumpValue) card.gameSuit = Card.SUIT_TRUMP;
-			else card.gameSuit = card.suit;
+			card.calculateGameSuit(trumpSuit, trumpValue);
 		}
 	}
 	

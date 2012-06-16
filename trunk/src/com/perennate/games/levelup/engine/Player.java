@@ -47,6 +47,8 @@ public class Player {
 		for(int j = 0; j < hand.size(); j++) {
 			if(hand.get(j).equals(card)) {
 				numRemoved++;
+				hand.remove(j);
+				j--;
 				
 				if(numRemoved >= amount) break;
 			}
@@ -61,6 +63,7 @@ public class Player {
 	
 	public void calculateGameSuit(int trumpSuit, int trumpValue) {
 		Card.calculateGameSuit(trumpSuit, trumpValue, hand);
+		Collections.sort(hand, new CardHandComparator(trumpSuit, trumpValue));
 	}
 	
 	//each integer in trickType is how many of a certain card there is
@@ -137,5 +140,15 @@ public class Player {
 	
 	public String getName() {
 		return name;
+	}
+	
+	public String getHandString() {
+		String str = "";
+		
+		for(Card card : hand) {
+			str += " " + card;
+		}
+		
+		return str;
 	}
 }

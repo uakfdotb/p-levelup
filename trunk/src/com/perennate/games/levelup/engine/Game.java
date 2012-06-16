@@ -12,6 +12,8 @@ public class Game {
 	public static int STATE_DEALING = 1;
 	public static int STATE_BETTING = 2;
 	public static int STATE_PLAYING = 3;
+	public static int STATE_ROUNDOVER = 4;
+	public static int STATE_GAMEOVER = 5;
 	
 	boolean controller; //whether or not this instance is the server
 	List<GamePlayerListener> listeners;
@@ -27,6 +29,7 @@ public class Game {
 	//current game fields
 	int currentLevel;
 	int currentDealer; //dealer will get the bottom
+	boolean firstRound;
 	
 	//dealing fields
 	int lastPlayerDealt;
@@ -45,6 +48,9 @@ public class Game {
 	Trick openingPlay;
 	List<Trick> plays;
 	
+	//roundover fields
+	int roundOverCounter;
+	
 	public Game(int numPlayers, boolean controller) {
 		this.numPlayers = numPlayers;
 		this.controller = controller;
@@ -57,12 +63,12 @@ public class Game {
 		
 		listeners = new ArrayList<GamePlayerListener>();
 		
+		firstRound = true;
 		currentDealer = 0;
-		init();
+		setState(STATE_INIT);
 	}
 	
 	public void init() {
-		setState(STATE_INIT);
 		deck = Card.getCards(numDecks);
 		bottom = new ArrayList<Card>();
 		bets = new ArrayList<Bet>();
@@ -82,8 +88,38 @@ public class Game {
 	public void setState(int newState) {
 		state = newState;
 		
-		if(state == STATE_PLAYING) {
-			nextPlayer = bets.get(bets.size() - 1).player;
+		if(state == STATE_INIT) {
+			init();
+		} else if(state == STATE_PLAYING) {
+			Bet winningBet = bets.get(bets.size() - 1);
+			
+			//set the trump suit
+			trumpSuit = winningBet.suit;
+			
+			//fix the hands of the players to be in correct order with new trumps
+			for(Player player : players) {
+				player.calculateGameSuit(trumpSuit, currentLevel);
+			}
+			
+			//set the current dealer for the first round
+			if(firstRound) {
+				currentDealer = winningBet.player;
+			}
+			
+			//figure out player teams if needed (depends on game mode)
+			//to do this, we see if the first player is on the same team as the dealer
+			// and then update everyone accordingly
+			if(firstRound) {
+				boolean firstPlayerDefending = currentDealer % 2 == 0;
+				
+				for(int i = 0; i < players.size(); i++) {
+					if(i % 2 == 0) players.get(i).defending = firstPlayerDefending;
+					else players.get(i).defending = !firstPlayerDefending;
+				}
+			}
+			
+			//set first player of first round
+			nextPlayer = currentDealer;
 			startingPlayer = nextPlayer;
 		}
 		
@@ -129,8 +165,10 @@ public class Game {
 	public boolean declare(int player, int suit, int amount) {
 		if(state != STATE_DEALING && state != STATE_BETTING) return false;
 		
+		LevelUp.println("[Game] Player " + player + " is attempting to declare.");
+		
 		if((bets.isEmpty() || amount > bets.get(bets.size() - 1).getAmount())
-				&& (!controller || players.get(player).countCards(new Card(currentLevel, suit)) >= amount)) {
+				&& (!controller || players.get(player).countCards(new Card(suit, currentLevel)) >= amount)) {
 			//also make sure that the player has not already made a bet
 			// in this case it is valid if another player has bet in between
 			//and this bet must have a different suit
@@ -144,6 +182,7 @@ public class Game {
 						i--;
 						continue;
 					} else {
+						LevelUp.debug("[Game] Declare failed; attempted to revise existing bet.");
 						return false;
 					}
 				} else if(bet.suit == suit) {
@@ -154,6 +193,7 @@ public class Game {
 						continue;
 					} else {
 						//can't overturn the same suit
+						LevelUp.debug("[Game] Declare failed: attempted to overturn same suit.");
 						return false;
 					}
 				}
@@ -170,6 +210,7 @@ public class Game {
 			
 			return true;
 		} else {
+			LevelUp.debug("[Game] Declare failed because it doesn't beat previous bet or player does not have the cards.");
 			return false;
 		}
 	}
@@ -179,6 +220,7 @@ public class Game {
 	public boolean withdrawDeclaration(int player) {
 		if(state != STATE_DEALING && state != STATE_BETTING) return false;
 		
+		//use bets.size() - 1 because we cannot withdraw the last declaration
 		for(int i = 0; i < bets.size() - 1; i++) {
 			if(bets.get(i).player == player) {
 				betCountDown = 0;
@@ -211,7 +253,10 @@ public class Game {
 		
 		if(bet == null) return false;
 		
-		if(amount >= bets.get(bets.size() - 1).getAmount() && (!controller || players.get(player).countCards(new Card(currentLevel, bet.suit)) >= amount)) {
+		//make sure that the current amount is greater or equal to the previous bet
+		// and that the player has enough cards (we can only check the latter if we are controller)
+		if(amount >= bets.get(bets.size() - 1).getAmount() &&
+				(!controller || players.get(player).countCards(new Card(bet.suit, currentLevel)) >= amount)) {
 			//this is acceptable, delete all bets after the found one
 			betCountDown = 0;
 			bet.amount = amount;
@@ -496,10 +541,20 @@ public class Game {
 				players.get(winningPlayer).points += fieldPoints();
 				
 				plays.clear();
+				LevelUp.println("hi: " + plays.size());
 				startingPlayer = winningPlayer;
 				nextPlayer = winningPlayer;
 				
-				if(players.get(0).hand.isEmpty()) {
+				//determine if the round is over (all player's hands are empty)
+				//we have to loop through each player because this might not be
+				// a controller instance, and so we might not know all of the cards.
+				boolean roundOver = true;
+				
+				for(Player it_player : players) {
+					if(!it_player.getHand().isEmpty()) roundOver = false;
+				}
+				
+				if(roundOver) {
 					//this round is over
 					//first give winner double the points on bottom
 					players.get(winningPlayer).points += bottomPoints() * 2;
@@ -520,49 +575,66 @@ public class Game {
 	//If amount isn't the same, then the first trick wins.
 	//True means first trick is better
 	public boolean compareTrick(Trick one, Trick two) {
+		LevelUp.debug("one");
+		for(int i = 0; i < one.getCards().size(); i++) {
+			LevelUp.debug("\t" + one.getAmounts().get(i) + " of " + one.getCards().get(i));
+		}
+		
+		LevelUp.debug("two");
+		for(int i = 0; i < two.getCards().size(); i++) {
+			LevelUp.debug("\t" + two.getAmounts().get(i) + " of " + two.getCards().get(i));
+		}
+		
 		if(one.getAmounts().equals(two.getAmounts())) {
 			//check that all the suits in two match
 			int oneSuit = one.getCards().get(0).gameSuit;
-			boolean trumpCheck = false;
-			for(int i=0; i < two.getCards().size(); i++) {
-				if(two.getCards().get(i).gameSuit != oneSuit && trumpCheck == false) {
-					if(trumpCheck == false && two.getCards().get(i).gameSuit == Card.SUIT_TRUMP) {
-						trumpCheck = true;
-					} else if (two.getCards().get(i).gameSuit != Card.SUIT_TRUMP && trumpCheck == true) {
-						return true;
-					}
-				} else {
+			int twoSuit = two.getCards().get(0).gameSuit;
+			
+			if(oneSuit != twoSuit) {
+				LevelUp.debug("[Game] compareTrick: true because two's cards do not match one's");
+				return true;
+			}
+			
+			//make sure two is all of the same suit
+			for(int i = 0; i < two.getCards().size(); i++) {
+				if(twoSuit != two.getCards().get(i).gameSuit) {
+					LevelUp.debug("[Game] compareTrick: true because two's cards are split across suits,");
 					return true;
 				}
 			}
 			
 			//at this point first hand is either same suit as second or second is all trump
 			//confirm that a the second trick is in sequential order
-			if(two.getAmounts().size()>1) {
-				int j=0;
-				for(int i=0; i<two.getAmounts().size()-1; i++) {
-					if(two.getCards().get(j).value == ( two.getCards().get( j+two.getAmounts().get(i) ).value - 1 )) {
-						j+=two.getAmounts().get(i);
-					} else {
-						//second hand is not a sequence
+			if(two.getAmounts().size() > 1) {
+				for(int i = 0; i < two.getAmounts().size() - 1; i++) {
+					if(two.getCards().get(i).getTrumpWeight(trumpSuit, currentLevel) != two.getCards().get(i + 1).getTrumpWeight(trumpSuit, currentLevel) - 1) {
+						LevelUp.debug("[Game] compareTrick: true because two is not in sequence");
 						return true;
 					}
 				}
 			}
 			
-			if(trumpCheck){
-				//if in sequence, and amount matchs, then the basic suit would be trumped regardless of card value
+			if(twoSuit == Card.SUIT_TRUMP && oneSuit != Card.SUIT_TRUMP) {
+				//if in sequence, and amount matches, then the basic suit would be trumped regardless of card value
+				LevelUp.debug("[Game] compareTrick: false because two trumps one");
 				return false;
 			} else {
-				for(int i=0; i<one.getCards().size(); i++) {
-					if(two.getCards().get(i).value <= one.getCards().get(i).value) {
+				for(int i = 0; i < one.getCards().size(); i++) {
+					//if trump, compare trump weight
+					//otherwise compare value
+					// getTrumpWeight does what we want
+					if(two.getCards().get(i).getTrumpWeight(trumpSuit, currentLevel) <= one.getCards().get(i).getTrumpWeight(trumpSuit, currentLevel)) {
+						LevelUp.debug("[Game] compareTrick: true because two's cards do not beat one's");
 						return true;
 					}
 				}
+				
 				//if all line up cards are greater than the first tricks, the second hand wins
+				LevelUp.debug("[Game] compareTrick: false because two beats one");
 				return false;
 			}
 		} else {
+			LevelUp.debug("[Game] compareTrick: true because amounts inequal");
 			return true;
 		}
 	}
@@ -620,8 +692,9 @@ public class Game {
 			winner = attackingPoints / (numDecks * 20) - 2;
 		}
 		
+		//level up the appropriate amount
+		//current level for the next round will be set in init()
 		if(winner >= 0) {
-			//level up the appropriate amount
 			// also switch teams
 			for(Player player : players) {
 				if(!player.defending) {
@@ -634,7 +707,6 @@ public class Game {
 			//update dealer
 			currentDealer = (currentDealer + 1) % players.size();
 		} else {
-			//level up the appropriate amount and update current level
 			for(Player player : players) {
 				if(player.defending) {
 					player.levelUp(-winner);
@@ -644,6 +716,23 @@ public class Game {
 			//update dealer
 			currentDealer = (currentDealer + 2) % players.size();
 		}
+		
+		//only update the state if we are the controller
+		//otherwise we'll update the state once when we do it here
+		// and again when notified by server
+		if(controller) {
+			if(!gameOver()) {
+				setState(STATE_ROUNDOVER);
+			} else {
+				setState(STATE_GAMEOVER);
+			}
+		}
+		
+		//no matter what, next round is not the first round anymore, so update
+		firstRound = false;
+		
+		//start the round over counter at zero
+		roundOverCounter = 0;
 	}
 	
 	public boolean gameOver() {
@@ -656,7 +745,7 @@ public class Game {
 	
 	//returns milliseconds, maximum time to wait until next update
 	// or -1 to destroy this Game (if game is over or on error).
-	// should only called for controller Game instance
+	//should only be called for controller Game instance
 	public int update() {
 		if(state == STATE_INIT) {
 			//check if we have all the players
@@ -698,13 +787,6 @@ public class Game {
 			}
 		} else if(state == STATE_BETTING) {
 			if((!bets.isEmpty() && betCountDown >= 20) || (bets.size() == 1 && bets.get(0).amount == numDecks)) {
-				Bet winningBet = bets.get(bets.size() - 1);
-				trumpSuit = winningBet.suit;
-				
-				for(Player player : players) {
-					player.calculateGameSuit(trumpSuit, currentLevel);
-				}
-				
 				setState(STATE_PLAYING);
 			}
 			else {
@@ -717,7 +799,20 @@ public class Game {
 			
 			return 500;
 		} else if(state == STATE_PLAYING) {
-			return 500;
+			return 2000;
+		} else if(state == STATE_ROUNDOVER || state == STATE_GAMEOVER) {
+			roundOverCounter++;
+			
+			if(roundOverCounter >= 30) {
+				setState(STATE_INIT);
+				return 1000;
+			} else {
+				for(GamePlayerListener listener : listeners) {
+					listener.eventUpdateRoundOverCounter(roundOverCounter);
+				}
+				
+				return 500;
+			}
 		} else {
 			//error!
 			System.out.println("[GAME] Unknown state: " + state);
@@ -737,6 +832,10 @@ public class Game {
 		betCountDown = newCounter;
 	}
 	
+	public void setRoundOverCounter(int newCounter) {
+		roundOverCounter = newCounter;
+	}
+	
 	public int getNextPlayer() {
 		return nextPlayer;
 	}
@@ -747,6 +846,12 @@ public class Game {
 	
 	public int getState() {
 		return state;
+	}
+	
+	public Card constructCard(int suit, int value) {
+		Card card = new Card(suit, value);
+		card.calculateGameSuit(trumpSuit, currentLevel);
+		return card;
 	}
 }
 

@@ -28,6 +28,7 @@ public class GameClient extends Thread {
 	public static int PACKET_PLAYERROR = 9;
 	public static int PACKET_DEALTCARD = 10;
 	public static int PACKET_UPDATEBETCOUNTER = 11;
+	public static int PACKET_UPDATEROUNDOVERCOUNTER = 12;
 	
 	Socket socket;
 	DataInputStream in;
@@ -76,8 +77,13 @@ public class GameClient extends Thread {
 		String reason = "unknown";
 		
 		while(true) {
-			if(game.getState() == Game.STATE_PLAYING && pid == game.getNextPlayer()) {
-				LevelUp.println("[GameClient] It is now your turn.");
+			if(game.getState() == Game.STATE_PLAYING) {
+				if(pid == game.getNextPlayer()) {
+					LevelUp.println("[GameClient] It is now your turn.");
+					LevelUp.println("[GameClient] Your cards:" + game.getPlayer(pid).getHandString());
+				} else {
+					LevelUp.println("[GameClient] It is Player " + game.getNextPlayer() + "'s turn.");
+				}
 			}
 			
 			try {
@@ -119,6 +125,11 @@ public class GameClient extends Thread {
 					game.setState(newState);
 					
 					LevelUp.println("[GameClient] Game state updated to: " + newState);
+					
+					if(newState == Game.STATE_ROUNDOVER || newState == Game.STATE_GAMEOVER) {
+						LevelUp.println("[GameClient] First team is on " + game.getPlayer(0).getLevel());
+						LevelUp.println("[GameClient] Second team is on " + game.getPlayer(1).getLevel());
+					}
 				} else if(identifier == PACKET_DECLARE) {
 					int otherPlayer = in.readInt();
 					int suit = in.readInt();
@@ -151,7 +162,7 @@ public class GameClient extends Thread {
 					for(int i = 0; i < numCards; i++) {
 						int suit = in.readInt();
 						int value = in.readInt();
-						cards.add(new Card(value, suit));
+						cards.add(game.constructCard(suit, value));
 					}
 					
 					int numAmounts = in.readInt();
@@ -167,7 +178,7 @@ public class GameClient extends Thread {
 					String print = "[GameClient] Player [" + name + "] has played a trick:";
 					
 					for(int i = 0; i < cards.size() && i < amounts.size(); i++) {
-						print += " " + amounts.get(i) + " of " + cards.get(i);
+						print += " " + amounts.get(i) + " of " + cards.get(i) + ",";
 					}
 					
 					LevelUp.println(print);
@@ -177,15 +188,21 @@ public class GameClient extends Thread {
 				} else if(identifier == PACKET_DEALTCARD) {
 					int suit = in.readInt();
 					int value = in.readInt();
-					Card card = new Card(value, suit);
+					Card card = game.constructCard(suit, value);
 					game.getPlayer(pid).addCard(card);
 					
 					LevelUp.println("[GameClient] You were dealt: " + card);
+					LevelUp.println("[GameClient] Your cards:" + game.getPlayer(pid).getHandString());
 				} else if(identifier == PACKET_UPDATEBETCOUNTER) {
 					int newCounter = in.readInt();
 					game.setBetCounter(newCounter);
 					
 					LevelUp.println("[GameClient] Betting ends in " + newCounter);
+				} else if(identifier == PACKET_UPDATEROUNDOVERCOUNTER) {
+					int newCounter = in.readInt();
+					game.setRoundOverCounter(newCounter);
+					
+					LevelUp.println("[GameClient] Next round starts in " + newCounter);
 				} else {
 					reason = "unknown packet received from server, id=" + identifier;
 					break;
