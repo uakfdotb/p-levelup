@@ -280,8 +280,11 @@ public class Game {
 	
 	//cards is a list of unique cards
 	//amount is the number of each unique card played
-	public boolean playTrick(int player, List<Card> cards, List<Integer> amounts) {
+	public boolean playTrick(int player, Trick trick) {
 		println("Player " + player + " is attempting to play a trick.");
+		
+		List<Card> cards = trick.getCards();
+		List<Integer> amounts = trick.getAmounts();
 		
 		if(cards.isEmpty() || amounts.size() != cards.size()) {
 			return false;
@@ -319,7 +322,7 @@ public class Game {
 			Collections.sort(cards, new CardSuitWeightComparator(trumpSuit, currentLevel)); //sort by value
 			
 			for(int i = 0; i < cards.size() - 1; i++) {
-				if(cards.get(i).value != cards.get(i + 1).value - 1) {
+				if(cards.get(i).gameValue != cards.get(i + 1).gameValue - 1) {
 					println("Played cards are not consecutive.");
 					return false;
 				}
@@ -621,7 +624,7 @@ public class Game {
 			//confirm that a the second trick is in sequential order
 			if(two.getAmounts().size() > 1) {
 				for(int i = 0; i < two.getAmounts().size() - 1; i++) {
-					if(two.getCards().get(i).getTrumpWeight(trumpSuit, currentLevel) != two.getCards().get(i + 1).getTrumpWeight(trumpSuit, currentLevel) - 1) {
+					if(two.getCards().get(i).gameValue != two.getCards().get(i + 1).gameValue - 1) {
 						LevelUp.debug("[Game] compareTrick: true because two is not in sequence");
 						return true;
 					}
@@ -636,8 +639,8 @@ public class Game {
 				for(int i = 0; i < one.getCards().size(); i++) {
 					//if trump, compare trump weight
 					//otherwise compare value
-					// getTrumpWeight does what we want
-					if(two.getCards().get(i).getTrumpWeight(trumpSuit, currentLevel) <= one.getCards().get(i).getTrumpWeight(trumpSuit, currentLevel)) {
+					// gameValue does what we want
+					if(two.getCards().get(i).gameValue <= one.getCards().get(i).gameValue) {
 						LevelUp.debug("[Game] compareTrick: true because two's cards do not beat one's");
 						return true;
 					}
@@ -914,24 +917,6 @@ class Bet {
 	
 	public int getAmount() {
 		return amount;
-	}
-}
-
-class Trick {
-	List<Card> cards;
-	List<Integer> amounts;
-	
-	public Trick(List<Card> cards, List<Integer> amounts) {
-		this.cards = cards;
-		this.amounts = amounts;
-	}
-	
-	public List<Card> getCards() {
-		return cards;
-	}
-	
-	public List<Integer> getAmounts() {
-		return amounts;
 	}
 }
 
