@@ -79,6 +79,9 @@ public class Game {
 		}
 		
 		currentLevel = players.get(currentDealer).getLevel();
+		
+		betCountDown = 0;
+		roundOverCounter = 0;
 	}
 	
 	public void println(String message) {
@@ -530,6 +533,8 @@ public class Game {
 			nextPlayer = (nextPlayer + 1) % players.size();
 			
 			//check if this play is over, or maybe even the round
+			boolean roundOver = false;
+			
 			if(plays.size() == numPlayers) {
 				int winningPlayer = compareField();
 				
@@ -544,7 +549,7 @@ public class Game {
 				//determine if the round is over (all player's hands are empty)
 				//we have to loop through each player because this might not be
 				// a controller instance, and so we might not know all of the cards.
-				boolean roundOver = true;
+				roundOver = true;
 				
 				for(Player it_player : players) {
 					if(!it_player.getHand().isEmpty()) roundOver = false;
@@ -563,7 +568,9 @@ public class Game {
 						listener.eventBottom(bottom);
 					}
 					
-					roundOver();
+					//we delay calling roundOver until later because otherwise
+					// clients won't receive the cards for the last trick
+					// until after the state is changed away from playing.
 				}
 			}
 			
@@ -572,6 +579,12 @@ public class Game {
 			// before this
 			for(GamePlayerListener listener : listeners) {
 				listener.eventPlayCards(player, cards, amounts);
+			}
+			
+			//call roundOver if needed here so that cards
+			// are updated first
+			if(roundOver) {
+				roundOver();
 			}
 			
 			return true;
@@ -681,7 +694,9 @@ public class Game {
 		//count total points on attacking side
 		int attackingPoints = 0;
 		for(Player player : players) {
-			attackingPoints += player.points;
+			if(!player.defending) {
+				attackingPoints += player.points;
+			}
 		}
 		
 		//negative is towards defending, positive is towards attacking, >=0 switches sides
