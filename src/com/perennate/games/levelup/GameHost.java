@@ -11,6 +11,7 @@ import java.util.List;
 import com.perennate.games.levelup.engine.Card;
 import com.perennate.games.levelup.engine.Game;
 import com.perennate.games.levelup.engine.GamePlayerListener;
+import com.perennate.games.levelup.engine.Trick;
 
 public class GameHost extends Thread {
 	public static int DEFAULT_PORT = 7553;
@@ -24,9 +25,9 @@ public class GameHost extends Thread {
 	Game game;
 	
 	public GameHost() {
-		game = new Game(4, true);
+		game = new Game(6, true);
 		connections = new ArrayList<GameConnection>();
-		slots = new GameSlot[4];
+		slots = new GameSlot[6];
 		gameLoaded = false;
 		
 		for(int i = 0; i < slots.length; i++) {
@@ -288,7 +289,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 						boolean playSuccess;
 						
 						synchronized(game) {
-							playSuccess = game.playTrick(pid, cards, amounts);
+							playSuccess = game.playTrick(pid, new Trick(cards, amounts));
 							
 							if(!playSuccess)
 								sendPlayError("Play failed");

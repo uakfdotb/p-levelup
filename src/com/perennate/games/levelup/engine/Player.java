@@ -78,7 +78,7 @@ public class Player {
 		
 		for(CardTuple tuple : tuples) {
 			if(tuple.getCard().gameSuit == suit && tuple.getAmount() > trickType.get(trickIndex)) {
-				if(lastValue != -1 && tuple.getCard().value == lastValue + 1) {
+				if(lastValue != -1 && tuple.getCard().gameValue == lastValue + 1) {
 					lastValue++;
 					trickIndex++;
 					
@@ -86,7 +86,7 @@ public class Player {
 						return true;
 					}
 				} else {
-					lastValue = tuple.getCard().value;
+					lastValue = tuple.getCard().gameValue;
 					trickIndex = 1;
 				}
 			}

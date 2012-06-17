@@ -19,6 +19,9 @@ public class Card {
 	//in this case, the trump value and suit are all represented by SUIT_TRUMP
 	int gameSuit;
 	
+	//gameValue is similar...
+	int gameValue;
+	
 	public Card(int suit, int value) {
 		this.value = value;
 		this.suit = suit;
@@ -80,8 +83,13 @@ public class Card {
 	}
 	
 	public void calculateGameSuit(int trumpSuit, int trumpValue) {
-		if(suit == trumpSuit || value == trumpValue) gameSuit = Card.SUIT_TRUMP;
-		else gameSuit = suit;
+		if(suit == trumpSuit || value == trumpValue) {
+			gameSuit = Card.SUIT_TRUMP;
+			gameValue = getTrumpWeight(trumpSuit, trumpValue);
+		} else {
+			gameSuit = suit;
+			gameValue=  value;
+		}
 	}
 	
 	public String toString() {
