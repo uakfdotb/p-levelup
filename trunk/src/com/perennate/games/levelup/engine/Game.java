@@ -45,8 +45,8 @@ public class Game {
 	int trickCards;
 	int nextPlayer;
 	
-	Trick openingPlay;
-	List<Trick> plays;
+	List<CardTuple> openingPlay;
+	List<List<CardTuple>> plays;
 	
 	//roundover fields
 	int roundOverCounter;
@@ -72,7 +72,7 @@ public class Game {
 		deck = Card.getCards(numDecks);
 		bottom = new ArrayList<Card>();
 		bets = new ArrayList<Bet>();
-		plays = new ArrayList<Trick>();
+		plays = new ArrayList<List<CardTuple>>();
 		
 		for(Player player : players) {
 			player.init();
@@ -280,11 +280,11 @@ public class Game {
 	
 	//cards is a list of unique cards
 	//amount is the number of each unique card played
-	public boolean playTrick(int player, Trick trick) {
+	public boolean playTrick(int player, List<CardTuple> trick) {
 		println("Player " + player + " is attempting to play a trick.");
 		
-		List<Card> cards = trick.getCards();
-		List<Integer> amounts = trick.getAmounts();
+		List<Card> cards = CardTuple.extractCards(trick);
+		List<Integer> amounts = CardTuple.extractAmounts(trick);
 		
 		if(cards.isEmpty() || amounts.size() != cards.size()) {
 			return false;
@@ -332,12 +332,15 @@ public class Game {
 			//remove player's cards
 			players.get(player).removeCards(cards, amounts);
 			
+			//reconstruct trick
+			trick = CardTuple.createTrick(cards, amounts);
+			
 			//add to plays for this trick
-			plays.add(new Trick(cards, amounts));
+			plays.add(trick);
 			
 			//update information for this trick
 			trickCards = amount * cards.size();
-			openingPlay = new Trick(cards, amounts);
+			openingPlay = trick;
 
 			for(GamePlayerListener listener : listeners) {
 				listener.eventPlayCards(player, cards, amounts);
@@ -349,8 +352,10 @@ public class Game {
 			return true;
 		} else if(player == nextPlayer) {
 			if(controller) {
-				int trickSuit = openingPlay.getCards().get(0).gameSuit;
-				int trickAmount = openingPlay.getAmounts().get(0);
+				//find the suit and amount of opening play
+				//todo: implement special flush case somehow...
+				int trickSuit = openingPlay.get(0).getCard().gameSuit;
+				int trickAmount = openingPlay.get(0).getAmount();
 				
 				//make sure player has the cards
 				if(controller) {
@@ -396,8 +401,12 @@ public class Game {
 				// this only applies if the player has not exhausted the suit
 				if(trickAmount > 1 && totalSuitCards == trickCards) {
 					//first make sure player isn't avoiding playing the enter combination
-					if(players.get(player).searchTrick(trickSuit, openingPlay.getAmounts())) {
-						if(!amounts.equals(openingPlay.getAmounts())) {
+					//do this first by comparing play to the opening amounts
+					// and then by searching player's hand for the combination
+					List<Integer> openingAmounts = CardTuple.extractAmounts(openingPlay);
+					
+					if(players.get(player).searchTrick(trickSuit, openingAmounts)) {
+						if(!amounts.equals(openingAmounts)) {
 							println("Played cards avoids playing combination.");
 							return false;
 						} else {
@@ -406,6 +415,7 @@ public class Game {
 						}
 					} else {
 						//if not combination, make sure player plays as many individual parts as possible
+						//for example, on a triple, the player must play a double if the player has noe
 						
 						//find all the tuples
 						List<CardTuple> tuples = players.get(player).getTuples(trickSuit);
@@ -431,8 +441,8 @@ public class Game {
 						
 						//now loop through each amount (which should all be the same)
 						// and make sure player didn't avoid something needed to play
-						for(int i = 0; i < openingPlay.getAmounts().size(); i++) {
-							int currAmount = openingPlay.getAmounts().get(i);
+						for(int i = 0; i < openingAmounts.size(); i++) {
+							int currAmount = openingAmounts.get(i);
 							
 							//see if player has exact number
 							boolean hasExact = false;
@@ -529,8 +539,11 @@ public class Game {
 			//remove player's cards
 			players.get(player).removeCards(cards, amounts);
 			
+			//reconstruct trick
+			trick = CardTuple.createTrick(cards, amounts);
+			
 			//add to plays for this trick
-			plays.add(new Trick(cards, amounts));
+			plays.add(trick);
 			
 			//calculate the next player
 			nextPlayer = (nextPlayer + 1) % players.size();
@@ -601,11 +614,12 @@ public class Game {
 	//The trick put in first is given priority meaning if they are equal, then the first trick will win. 
 	//If amount isn't the same, then the first trick wins.
 	//True means first trick is better
-	public boolean compareTrick(Trick one, Trick two) {
-		if(one.getAmounts().equals(two.getAmounts())) {
+	public boolean compareTrick(List<CardTuple> one, List<CardTuple> two) {
+		//check if the tricks have the same structure (amounts)
+		if(CardTuple.compareCardTupleStructure(one, two)) {
 			//check that all the suits in two match
-			int oneSuit = one.getCards().get(0).gameSuit;
-			int twoSuit = two.getCards().get(0).gameSuit;
+			int oneSuit = one.get(0).getCard().gameSuit;
+			int twoSuit = two.get(0).getCard().gameSuit;
 			
 			if(oneSuit != twoSuit && twoSuit != Card.SUIT_TRUMP) {
 				LevelUp.debug("[Game] compareTrick: true because two's cards do not match one's");
@@ -613,8 +627,8 @@ public class Game {
 			}
 			
 			//make sure two is all of the same suit
-			for(int i = 0; i < two.getCards().size(); i++) {
-				if(twoSuit != two.getCards().get(i).gameSuit) {
+			for(int i = 0; i < two.size(); i++) {
+				if(twoSuit != two.get(i).getCard().gameSuit) {
 					LevelUp.debug("[Game] compareTrick: true because two's cards are split across suits,");
 					return true;
 				}
@@ -622,12 +636,11 @@ public class Game {
 			
 			//at this point first hand is either same suit as second or second is all trump
 			//confirm that a the second trick is in sequential order
-			if(two.getAmounts().size() > 1) {
-				for(int i = 0; i < two.getAmounts().size() - 1; i++) {
-					if(two.getCards().get(i).gameValue != two.getCards().get(i + 1).gameValue - 1) {
-						LevelUp.debug("[Game] compareTrick: true because two is not in sequence");
-						return true;
-					}
+			// note: tricks will automatically be put in sequential order by CardTuple.createTrick
+			for(int i = 0; i < two.size() - 1; i++) {
+				if(two.get(i).getCard().gameValue != two.get(i + 1).getCard().gameValue - 1) {
+					LevelUp.debug("[Game] compareTrick: true because two is not in sequence");
+					return true;
 				}
 			}
 			
@@ -636,11 +649,11 @@ public class Game {
 				LevelUp.debug("[Game] compareTrick: false because two trumps one");
 				return false;
 			} else {
-				for(int i = 0; i < one.getCards().size(); i++) {
+				for(int i = 0; i < one.size(); i++) {
 					//if trump, compare trump weight
 					//otherwise compare value
 					// gameValue does what we want
-					if(two.getCards().get(i).gameValue <= one.getCards().get(i).gameValue) {
+					if(two.get(i).getCard().gameValue <= one.get(i).getCard().gameValue) {
 						LevelUp.debug("[Game] compareTrick: true because two's cards do not beat one's");
 						return true;
 					}
@@ -673,9 +686,9 @@ public class Game {
 	public int fieldPoints() {
 		int points = 0;
 		
-		for(Trick trick : plays) {
-			for(int i = 0; i < trick.getCards().size(); i++) {
-				points += trick.getCards().get(i).getPoints() * trick.getAmounts().get(i);
+		for(List<CardTuple> trick : plays) {
+			for(int i = 0; i < trick.size(); i++) {
+				points += trick.get(i).getCard().getPoints() * trick.get(i).getAmount();
 			}
 		}
 		

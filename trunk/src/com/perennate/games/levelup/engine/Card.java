@@ -209,21 +209,3 @@ public class Card {
 		return suit;
 	}
 }
-
-class CardTuple {
-	Card card;
-	int amount;
-	
-	public CardTuple(Card card, int amount) {
-		this.card = card;
-		this.amount = amount;
-	}
-	
-	public Card getCard() {
-		return card;
-	}
-	
-	public int getAmount() {
-		return amount;
-	}
-}

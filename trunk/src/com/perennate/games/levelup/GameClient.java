@@ -10,8 +10,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.perennate.games.levelup.engine.Card;
+import com.perennate.games.levelup.engine.CardTuple;
 import com.perennate.games.levelup.engine.Game;
-import com.perennate.games.levelup.engine.Trick;
 
 public class GameClient extends Thread {
 	public static int DEFAULT_PORT = 7553;
@@ -40,7 +40,7 @@ public class GameClient extends Thread {
 	int pid;
 	
 	public GameClient() {
-		game = new Game(6, false);
+		game = new Game(Config.getInt("numplayers", 4), false);
 		pid = -1;
 		
 		connect();
@@ -174,7 +174,7 @@ public class GameClient extends Thread {
 						amounts.add(in.readInt());
 					}
 					
-					game.playTrick(otherPlayer, new Trick(cards, amounts));
+					game.playTrick(otherPlayer, CardTuple.createTrick(cards, amounts));
 					
 					String name = game.getPlayer(otherPlayer).getName();
 					String print = "[GameClient] Player [" + name + "] has played a trick:";
