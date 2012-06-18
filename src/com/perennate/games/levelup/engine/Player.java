@@ -29,7 +29,7 @@ public class Player {
 	
 	public void addCard(Card card) {
 		hand.add(card);
-		Collections.sort(hand, new CardHandComparator(Card.SUIT_NONE, game.getCurrentLevel()));
+		Collections.sort(hand, new CardHandComparator(game.getTrumpSuit(), game.getCurrentLevel()));
 	}
 	
 	public int countCards(Card card) {
@@ -143,12 +143,6 @@ public class Player {
 	}
 	
 	public String getHandString() {
-		String str = "";
-		
-		for(Card card : hand) {
-			str += " " + card;
-		}
-		
-		return str;
+		return Card.toString(hand);
 	}
 }

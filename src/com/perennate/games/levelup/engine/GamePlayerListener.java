@@ -15,7 +15,8 @@ public interface GamePlayerListener {
 	
 	public void eventDealtCard(Card card);
 	public void eventUpdateBetCounter(int newCounter);
-	
+
 	public void eventBottom(List<Card> cards);
+	public void eventSelectBottom(List<Card> cards);
 	public void eventUpdateRoundOverCounter(int newCounter);
 }

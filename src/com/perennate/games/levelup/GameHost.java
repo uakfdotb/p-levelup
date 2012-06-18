@@ -168,6 +168,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 	public static int PACKET_UPDATEBETCOUNTER = 11;
 	public static int PACKET_UPDATEROUNDOVERCOUNTER = 12;
 	public static int PACKET_BOTTOM = 13;
+	public static int PACKET_SELECTBOTTOM = 14;
 	
 	GameHost host;
 	
@@ -227,7 +228,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 						
 						if(pid == -1) break;
 					} else {
-						println("Unkwown packet received (init), id=" + identifier);
+						println("Unknown packet received (init), id=" + identifier);
 						break;
 					}
 				} else if(host.gameLoaded) {
@@ -296,8 +297,28 @@ class GameConnection extends Thread implements GamePlayerListener {
 							else
 								game.notifyAll();
 						}
+					} else if(identifier == PACKET_SELECTBOTTOM) {
+						int numCards = in.readInt();
+						List<Card> cards = new ArrayList<Card>(numCards);
+						
+						for(int i = 0; i < numCards; i++) {
+							int suit = in.readInt();
+							int value = in.readInt();
+							cards.add(game.constructCard(suit, value));
+						}
+						
+						boolean bottomSuccess;
+						
+						synchronized(game) {
+							bottomSuccess = game.selectBottom(pid, cards);
+							
+							if(!bottomSuccess)
+								sendPlayError("Bottom selection failed");
+							else
+								game.notifyAll();
+						}
 					} else {
-						println("Unkwown packet received (joined), id=" + identifier);
+						println("Unknown packet received (joined), id=" + identifier);
 						break;
 					}
 				}
@@ -527,6 +548,25 @@ class GameConnection extends Thread implements GamePlayerListener {
 			try {
 				out.write(PACKET_HEADER);
 				out.write(PACKET_BOTTOM);
+				out.writeInt(cards.size());
+				
+				for(Card card : cards) {
+					out.writeInt(card.getSuit());
+					out.writeInt(card.getValue());
+				}
+			} catch(IOException ioe) {
+				terminate();
+			}
+		}
+	}
+	
+	public void eventSelectBottom(List<Card> cards) {
+		if(!socket.isConnected()) return;
+		
+		synchronized(out) {
+			try {
+				out.write(PACKET_HEADER);
+				out.write(PACKET_SELECTBOTTOM);
 				out.writeInt(cards.size());
 				
 				for(Card card : cards) {

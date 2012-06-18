@@ -31,6 +31,7 @@ public class GameClient implements Runnable {
 	public static int PACKET_UPDATEBETCOUNTER = 11;
 	public static int PACKET_UPDATEROUNDOVERCOUNTER = 12;
 	public static int PACKET_BOTTOM = 13;
+	public static int PACKET_SELECTBOTTOM = 14;
 	
 	Socket socket;
 	DataInputStream in;
@@ -195,6 +196,18 @@ public class GameClient implements Runnable {
 					}
 					
 					game.setBottom(cards);
+				} else if(identifier == PACKET_SELECTBOTTOM) {
+					int numCards = in.readInt();
+					
+					List<Card> cards = new ArrayList<Card>(numCards);
+					
+					for(int i = 0; i < numCards; i++) {
+						int suit = in.readInt();
+						int value = in.readInt();
+						cards.add(game.constructCard(suit, value));
+					}
+					
+					game.selectBottom(pid, cards);
 				} else {
 					reason = "unknown packet received from server, id=" + identifier;
 					break;
@@ -280,6 +293,23 @@ public class GameClient implements Runnable {
 				
 				for(Integer x : amounts) {
 					out.writeInt(x);
+				}
+			} catch(IOException ioe) {
+				terminate("failed to send packet");
+			}
+		}
+	}
+	
+	public void sendSelectBottom(List<Card> cards) {
+		synchronized(out) {
+			try {
+				out.write(PACKET_HEADER);
+				out.write(PACKET_SELECTBOTTOM);
+				out.writeInt(cards.size());
+				
+				for(Card card : cards) {
+					out.writeInt(card.getSuit());
+					out.writeInt(card.getValue());
 				}
 			} catch(IOException ioe) {
 				terminate("failed to send packet");
