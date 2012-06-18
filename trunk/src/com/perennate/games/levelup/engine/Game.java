@@ -11,9 +11,10 @@ public class Game {
 	public static int STATE_INIT = 0;
 	public static int STATE_DEALING = 1;
 	public static int STATE_BETTING = 2;
-	public static int STATE_PLAYING = 3;
-	public static int STATE_ROUNDOVER = 4;
-	public static int STATE_GAMEOVER = 5;
+	public static int STATE_BOTTOM = 3;
+	public static int STATE_PLAYING = 4;
+	public static int STATE_ROUNDOVER = 5;
+	public static int STATE_GAMEOVER = 6;
 	
 	boolean controller; //whether or not this instance is the server
 	List<GamePlayerListener> listeners;
@@ -82,10 +83,15 @@ public class Game {
 		
 		betCountDown = 0;
 		roundOverCounter = 0;
+		trumpSuit = Card.SUIT_NONE;
 	}
 	
 	public void println(String message) {
 		LevelUp.println("[Game] " + message);
+	}
+	
+	public void debug(String message) {
+		LevelUp.debug("[Game] " + message);
 	}
 	
 	public void setState(int newState) {
@@ -93,7 +99,7 @@ public class Game {
 		
 		if(state == STATE_INIT) {
 			init();
-		} else if(state == STATE_PLAYING) {
+		} else if(state == STATE_BOTTOM) {
 			Bet winningBet = bets.get(bets.size() - 1);
 			
 			//set the trump suit
@@ -168,7 +174,7 @@ public class Game {
 	public boolean declare(int player, int suit, int amount) {
 		if(state != STATE_DEALING && state != STATE_BETTING) return false;
 		
-		LevelUp.println("[Game] Player " + player + " is attempting to declare.");
+		println("Player " + player + " is attempting to declare.");
 		
 		if((bets.isEmpty() || amount > bets.get(bets.size() - 1).getAmount())
 				&& (!controller || players.get(player).countCards(new Card(suit, currentLevel)) >= amount)) {
@@ -185,7 +191,7 @@ public class Game {
 						i--;
 						continue;
 					} else {
-						LevelUp.debug("[Game] Declare failed; attempted to revise existing bet.");
+						debug("Declare failed; attempted to revise existing bet.");
 						return false;
 					}
 				} else if(bet.suit == suit) {
@@ -196,7 +202,7 @@ public class Game {
 						continue;
 					} else {
 						//can't overturn the same suit
-						LevelUp.debug("[Game] Declare failed: attempted to overturn same suit.");
+						debug("Declare failed: attempted to overturn same suit.");
 						return false;
 					}
 				}
@@ -213,7 +219,7 @@ public class Game {
 			
 			return true;
 		} else {
-			LevelUp.debug("[Game] Declare failed because it doesn't beat previous bet or player does not have the cards.");
+			debug("Declare failed because it doesn't beat previous bet or player does not have the cards.");
 			return false;
 		}
 	}
@@ -558,7 +564,7 @@ public class Game {
 				players.get(winningPlayer).points += fieldPoints();
 				
 				plays.clear();
-				LevelUp.println("hi: " + plays.size());
+				
 				startingPlayer = winningPlayer;
 				nextPlayer = winningPlayer;
 				
@@ -610,6 +616,61 @@ public class Game {
 		}
 	}
 	
+	//player wants to select the bottom
+	public boolean selectBottom(int player, List<Card> newBottom) {
+		if(state != STATE_BOTTOM || player != currentDealer) {
+			return false;
+		}
+		
+		println("Player " + player + " is selecting the bottom.");
+		
+		//make sure the bottom is the same size and player has the cards
+		if(bottom.size() == newBottom.size() || !controller) {
+			boolean failed = false;
+			
+			//don't skip if not controller because should be synced
+			// since selectBottom on non-controller is only called for
+			// the player who selected the bottom
+			for(int i = 0; i < newBottom.size(); i++) {
+				if(players.get(player).countCards(newBottom.get(i)) >= 1) {
+					players.get(player).removeCard(newBottom.get(i), 1);
+				} else {
+					//the player doesn't have the cards
+					// re-add the removed cards back in
+					for(int j = i - 1; j >= 0; j--) {
+						players.get(player).addCard(newBottom.get(j));
+					}
+					
+					failed = true;
+					debug("Selected failed: player does not have the cards");
+					break;
+				}
+			}
+			
+			if(!failed) {
+				if(controller) {
+					bottom = newBottom;
+					
+					for(GamePlayerListener listener : listeners) {
+						if(listener.getPlayer() == currentDealer) {
+							listener.eventSelectBottom(bottom);
+						}
+					}
+					
+					setState(STATE_PLAYING);
+				} else {
+					bottom.clear();
+				}
+				
+				return true;
+			}
+		} else {
+			debug("Select failed: bottom is not equal in size");
+		}
+		
+		return false;
+	}
+	
 	//this will compare two Tricks and return the better of the two.
 	//The trick put in first is given priority meaning if they are equal, then the first trick will win. 
 	//If amount isn't the same, then the first trick wins.
@@ -622,14 +683,14 @@ public class Game {
 			int twoSuit = two.get(0).getCard().gameSuit;
 			
 			if(oneSuit != twoSuit && twoSuit != Card.SUIT_TRUMP) {
-				LevelUp.debug("[Game] compareTrick: true because two's cards do not match one's");
+				debug("compareTrick: true because two's cards do not match one's");
 				return true;
 			}
 			
 			//make sure two is all of the same suit
 			for(int i = 0; i < two.size(); i++) {
 				if(twoSuit != two.get(i).getCard().gameSuit) {
-					LevelUp.debug("[Game] compareTrick: true because two's cards are split across suits,");
+					debug("compareTrick: true because two's cards are split across suits,");
 					return true;
 				}
 			}
@@ -639,14 +700,14 @@ public class Game {
 			// note: tricks will automatically be put in sequential order by CardTuple.createTrick
 			for(int i = 0; i < two.size() - 1; i++) {
 				if(two.get(i).getCard().gameValue != two.get(i + 1).getCard().gameValue - 1) {
-					LevelUp.debug("[Game] compareTrick: true because two is not in sequence");
+					debug("compareTrick: true because two is not in sequence");
 					return true;
 				}
 			}
 			
 			if(twoSuit == Card.SUIT_TRUMP && oneSuit != Card.SUIT_TRUMP) {
 				//if in sequence, and amount matches, then the basic suit would be trumped regardless of card value
-				LevelUp.debug("[Game] compareTrick: false because two trumps one");
+				debug("compareTrick: false because two trumps one");
 				return false;
 			} else {
 				for(int i = 0; i < one.size(); i++) {
@@ -654,17 +715,17 @@ public class Game {
 					//otherwise compare value
 					// gameValue does what we want
 					if(two.get(i).getCard().gameValue <= one.get(i).getCard().gameValue) {
-						LevelUp.debug("[Game] compareTrick: true because two's cards do not beat one's");
+						debug("compareTrick: true because two's cards do not beat one's");
 						return true;
 					}
 				}
 				
 				//if all line up cards are greater than the first tricks, the second hand wins
-				LevelUp.debug("[Game] compareTrick: false because two beats one");
+				debug("compareTrick: false because two beats one");
 				return false;
 			}
 		} else {
-			LevelUp.debug("[Game] compareTrick: true because amounts inequal");
+			debug("compareTrick: true because amounts inequal");
 			return true;
 		}
 	}
@@ -724,7 +785,7 @@ public class Game {
 			winner = attackingPoints / (numDecks * 20) - 2;
 		}
 		
-		LevelUp.debug("[Game] Winner is " + winner + " (attacking got " + attackingPoints + " points)");
+		debug("Winner is " + winner + " (attacking got " + attackingPoints + " points)");
 		
 		//level up the appropriate amount
 		//current level for the next round will be set in init()
@@ -807,7 +868,7 @@ public class Game {
 			
 			if(numBottomCards == 0) numBottomCards = players.size();
 			
-			LevelUp.debug("[Game] Putting " + numBottomCards + " on the bottom for " + players.size() + " players and " + deck.size() + " cards");
+			debug("Putting " + numBottomCards + " on the bottom for " + players.size() + " players and " + deck.size() + " cards");
 			
 			//create the bottom
 			for(int i = 0; i < numBottomCards; i++) {
@@ -838,7 +899,27 @@ public class Game {
 			}
 		} else if(state == STATE_BETTING) {
 			if((!bets.isEmpty() && betCountDown >= 20) || (bets.size() == 1 && bets.get(0).amount == numDecks)) {
-				setState(STATE_PLAYING);
+				setState(STATE_BOTTOM);
+				
+				//give the current dealer the bottom
+				// current dealer is updated by the statement above
+				for(int i = 0; i < bottom.size(); i++) {
+					players.get(currentDealer).addCard(bottom.get(i));
+				}
+				
+				//notify the player with the cards
+				for(GamePlayerListener listener : listeners) {
+					if(listener.getPlayer() == currentDealer) {
+						for(int i = 0; i < bottom.size(); i++) {
+							listener.eventDealtCard(bottom.get(i));
+						}
+						
+						listener.eventBottom(bottom);
+					}
+				}
+				
+				//do not clear the bottom because we'll use it to compare with the version
+				// that the player returns
 			} else {
 				betCountDown++;
 				
@@ -848,6 +929,8 @@ public class Game {
 			}
 			
 			return 500;
+		} else if(state == STATE_BOTTOM) {
+			return 1000;
 		} else if(state == STATE_PLAYING) {
 			return 2000;
 		} else if(state == STATE_ROUNDOVER || state == STATE_GAMEOVER) {
@@ -894,6 +977,14 @@ public class Game {
 		return startingPlayer;
 	}
 	
+	public int getCurrentDealer() {
+		return currentDealer;
+	}
+	
+	public int getTrumpSuit() {
+		return trumpSuit;
+	}
+	
 	public int getState() {
 		return state;
 	}
@@ -906,6 +997,15 @@ public class Game {
 	
 	public void setBottom(List<Card> bottom) {
 		this.bottom = bottom;
+		
+		//this should only be executed by non-controller instances
+		//in that case, we notify all listeners that we have the bottom,
+		// but only if this is the STATE_BOTTOM
+		if(state == STATE_BOTTOM) {
+			for(GamePlayerListener listener : listeners) {
+				listener.eventBottom(bottom);
+			}
+		}
 	}
 }
 

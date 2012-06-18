@@ -114,7 +114,13 @@ public class TerminalView extends View {
 	}
 	
 	public void eventBottom(List<Card> cards) {
-		
+		if(game.getState() == Game.STATE_BOTTOM && game.getCurrentDealer() == getPlayer()) {
+			LevelUp.println("[View] You have been given the bottom:" + Card.toString(cards));
+		}
+	}
+	
+	public void eventSelectBottom(List<Card> cards) {
+		LevelUp.println("[View] You have successfully selected the bottom");
 	}
 	
 	public void eventUpdateRoundOverCounter(int newCounter) {
@@ -159,6 +165,18 @@ public class TerminalView extends View {
 							selectedAmounts.clear();
 						} else if(parts[0].equals("play")) {
 							client.sendPlayCards(selectedCards, selectedAmounts);
+							selectedCards.clear();
+							selectedAmounts.clear();
+						} else if(parts[0].equals("bottom")) {
+							List<Card> bottom = new ArrayList<Card>();
+							
+							for(int i = 0; i < selectedCards.size(); i++) {
+								for(int j = 0; j < selectedAmounts.get(i); j++) {
+									bottom.add(selectedCards.get(i));
+								}
+							}
+							
+							client.sendSelectBottom(bottom);
 							selectedCards.clear();
 							selectedAmounts.clear();
 						}

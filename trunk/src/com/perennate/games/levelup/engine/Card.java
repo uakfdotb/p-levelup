@@ -208,4 +208,14 @@ public class Card {
 		
 		return suit;
 	}
+	
+	public static String toString(List<Card> cards) {
+		String str = "";
+		
+		for(Card card : cards) {
+			str += " " + card;
+		}
+		
+		return str;
+	}
 }
