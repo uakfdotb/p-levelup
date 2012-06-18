@@ -83,12 +83,12 @@ public class Card {
 	}
 	
 	public void calculateGameSuit(int trumpSuit, int trumpValue) {
-		if(suit == trumpSuit || value == trumpValue) {
+		if(suit == trumpSuit || suit == SUIT_TRUMP || value == trumpValue) {
 			gameSuit = Card.SUIT_TRUMP;
 			gameValue = getTrumpWeight(trumpSuit, trumpValue);
 		} else {
 			gameSuit = suit;
-			gameValue=  value;
+			gameValue =  value;
 		}
 	}
 	

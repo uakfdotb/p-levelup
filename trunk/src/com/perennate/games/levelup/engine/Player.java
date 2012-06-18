@@ -69,7 +69,8 @@ public class Player {
 	//each integer in trickType is how many of a certain card there is
 	//for example, a double is {2}
 	//4H 4H 5H 5H would be {2, 2}
-	//returns number of tricks found matching the specified type
+	//returns true if a trick matching the specified type exists in the suit
+	//assumes hand is already in order by CardHandComparator
 	public boolean searchTrick(int suit, List<Integer> trickType) {
 		List<CardTuple> tuples = getTuples(suit);
 		
@@ -96,6 +97,7 @@ public class Player {
 	}
 	
 	//searches for tuples in the player's hand
+	// assumes that the hand is already in order by CardHandComparator
 	public List<CardTuple> getTuples(int suit) {
 		List<CardTuple> array = new ArrayList<CardTuple>();
 		

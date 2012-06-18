@@ -15,7 +15,17 @@ public class GameCardHandComparator implements Comparator<Card> {
 		}
 		
 		//they are in the same suit
-		return a.gameValue - b.gameValue;
+		int difference = a.gameValue - b.gameValue;
+		
+		//make sure that we aren't dealing with cards of the same
+		// gameValue but not value
+		//this happens for trump suit, for the cards that are trump
+		// because of value but not because of suit
+		if(difference == 0 && !a.equals(b)) {
+			return a.value - b.value;
+		} else {
+			return difference;
+		}
 	}
 }
 
