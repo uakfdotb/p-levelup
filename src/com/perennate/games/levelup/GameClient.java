@@ -13,7 +13,7 @@ import com.perennate.games.levelup.engine.Card;
 import com.perennate.games.levelup.engine.CardTuple;
 import com.perennate.games.levelup.engine.Game;
 
-public class GameClient extends Thread {
+public class GameClient implements Runnable {
 	public static int DEFAULT_PORT = 7553;
 	
 	public static int PACKET_HEADER = 146;
@@ -37,22 +37,30 @@ public class GameClient extends Thread {
 	DataOutputStream out;
 	
 	Game game;
+	View view;
 	int pid;
 	
-	public GameClient() {
-		game = new Game(Config.getInt("numplayers", 4), false);
-		pid = -1;
+	public GameClient(Game game, View view) {
+		this.view = view;
+		this.game = game;
 		
-		connect();
+		view.setClient(this);
+		
+		pid = -1;
 	}
 	
-	public void connect() {
+	public void connect(String hostname) {
 		InetAddress host = null;
 		
 		try {
-			host = InetAddress.getLocalHost();
+			if(hostname.isEmpty()) {
+				host = InetAddress.getLocalHost();
+			} else {
+				host = InetAddress.getByName(hostname);
+			}
 		} catch(UnknownHostException e) {
-			LevelUp.println("[GameClient] Unable to get host address: " + e.getLocalizedMessage());
+			LevelUp.println("[GameClient] Unable to resolve host address: " + e.getLocalizedMessage());
+			view.eventConnectError("Unable to resolve host address");
 			return;
 		}
 		
@@ -63,11 +71,15 @@ public class GameClient extends Thread {
 			out = new DataOutputStream(socket.getOutputStream());
 		} catch(IOException ioe) {
 			LevelUp.println("[GameClient] Unable to connect to " + host.getHostAddress() + ": " + ioe.getLocalizedMessage());
+			view.eventConnectError("Unable to connect to " + host.getHostAddress() + ": " + ioe.getLocalizedMessage());
 		}
+		
+		new Thread(this).start();
 	}
 	
 	public void terminate(String reason) {
 		LevelUp.println("[GameClient] Terminating connection: " + reason);
+		view.eventTerminateError(reason);
 		
 		try {
 			socket.close();
@@ -79,15 +91,6 @@ public class GameClient extends Thread {
 		String reason = "unknown";
 		
 		while(true) {
-			if(game.getState() == Game.STATE_PLAYING) {
-				if(pid == game.getNextPlayer()) {
-					LevelUp.println("[GameClient] It is now your turn.");
-					LevelUp.println("[GameClient] Your cards:" + game.getPlayer(pid).getHandString());
-				} else {
-					LevelUp.println("[GameClient] It is Player " + game.getNextPlayer() + "'s turn.");
-				}
-			}
-			
 			try {
 				int header = in.read();
 				
@@ -103,58 +106,41 @@ public class GameClient extends Thread {
 				
 				if(identifier == PACKET_JOIN) { //JOIN
 					pid = in.readInt();
+					view.setPID(pid);
 					
 					if(pid == -1) {
 						reason = "server rejected connection";
+						view.eventJoined(false);
 						break;
 					}
+					
+					view.eventJoined(true);
 				} else if(identifier == PACKET_JOINOTHER) {
 					int otherPlayer = in.readInt();
 					String name = in.readUTF();
 					game.playerJoined(otherPlayer, name);
-					
-					LevelUp.println("[GameClient] Player [" + name + "] has joined the game");
 				} else if(identifier == PACKET_LEAVEOTHER) {
 					int otherPlayer = in.readInt();
-					String name = game.getPlayer(otherPlayer).getName();
 					game.playerLeft(otherPlayer);
-					
-					LevelUp.println("[GameClient] Player [" + name + "] has left the game");
 				} else if(identifier == PACKET_GAMELOADED) {
-					LevelUp.println("[GameClient] The game has begun.");
+					view.eventGameLoaded();
 				} else if(identifier == PACKET_GAMESTATECHANGE) {
 					int newState = in.readInt();
 					game.setState(newState);
-					
-					LevelUp.println("[GameClient] Game state updated to: " + newState);
-					
-					if(newState == Game.STATE_ROUNDOVER || newState == Game.STATE_GAMEOVER) {
-						LevelUp.println("[GameClient] First team is on " + game.getPlayer(0).getLevel());
-						LevelUp.println("[GameClient] Second team is on " + game.getPlayer(1).getLevel());
-					}
 				} else if(identifier == PACKET_DECLARE) {
 					int otherPlayer = in.readInt();
 					int suit = in.readInt();
 					int amount = in.readInt();
 					
 					game.declare(otherPlayer, suit, amount);
-					
-					String name = game.getPlayer(otherPlayer).getName();
-					LevelUp.println("[GameClient] Player [" + name + "] has declared with " + amount + " of " + Card.getSuitString(suit));
 				} else if(identifier == PACKET_WITHDRAWDECLARATION) {
 					int otherPlayer = in.readInt();
 					game.withdrawDeclaration(otherPlayer);
-					
-					String name = game.getPlayer(otherPlayer).getName();
-					LevelUp.println("[GameClient] Player [" + name + "] has withdrawn");
 				} else if(identifier == PACKET_DEFENDDECLARATION) {
 					int otherPlayer = in.readInt();
 					int amount = in.readInt();
 					
 					game.defendDeclaration(otherPlayer, amount);
-					
-					String name = game.getPlayer(otherPlayer).getName();
-					LevelUp.println("[GameClient] Player [" + name + "] has defended with " + amount);
 				} else if(identifier == PACKET_PLAYCARDS) {
 					int otherPlayer = in.readInt();
 					int numCards = in.readInt();
@@ -175,36 +161,28 @@ public class GameClient extends Thread {
 					}
 					
 					game.playTrick(otherPlayer, CardTuple.createTrick(cards, amounts));
-					
-					String name = game.getPlayer(otherPlayer).getName();
-					String print = "[GameClient] Player [" + name + "] has played a trick:";
-					
-					for(int i = 0; i < cards.size() && i < amounts.size(); i++) {
-						print += " " + amounts.get(i) + " of " + cards.get(i) + ",";
-					}
-					
-					LevelUp.println(print);
 				} else if(identifier == PACKET_PLAYERROR) {
 					String message = in.readUTF();
-					LevelUp.println("[GameClient] Server says you made an invalid play: " + message);
+					view.eventPlayError(message);
 				} else if(identifier == PACKET_DEALTCARD) {
 					int suit = in.readInt();
 					int value = in.readInt();
 					Card card = game.constructCard(suit, value);
 					game.getPlayer(pid).addCard(card);
 					
-					LevelUp.println("[GameClient] You were dealt: " + card);
-					LevelUp.println("[GameClient] Your cards:" + game.getPlayer(pid).getHandString());
+					view.eventDealtCard(card);
 				} else if(identifier == PACKET_UPDATEBETCOUNTER) {
 					int newCounter = in.readInt();
 					game.setBetCounter(newCounter);
 					
-					LevelUp.println("[GameClient] Betting ends in " + newCounter);
+					//game won't tell listeners unless it's controller, so tell view from here
+					view.eventUpdateBetCounter(newCounter);
 				} else if(identifier == PACKET_UPDATEROUNDOVERCOUNTER) {
 					int newCounter = in.readInt();
 					game.setRoundOverCounter(newCounter);
 					
-					LevelUp.println("[GameClient] Next round starts in " + newCounter);
+					//game won't tell listeners unless it's controller, so tell view from here
+					view.eventUpdateRoundOverCounter(newCounter);
 				} else if(identifier == PACKET_BOTTOM) {
 					int numCards = in.readInt();
 					
@@ -221,6 +199,8 @@ public class GameClient extends Thread {
 					reason = "unknown packet received from server, id=" + identifier;
 					break;
 				}
+				
+				view.eventGameUpdated();
 			} catch(IOException ioe) {
 				reason = "error while reading: " + ioe.getLocalizedMessage();
 				

@@ -1,16 +1,11 @@
 package com.perennate.games.levelup;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.List;
 
-import com.perennate.games.levelup.engine.Card;
-import com.perennate.games.levelup.engine.CardHandComparator;
+import com.perennate.games.levelup.engine.Game;
 
 public class LevelUp {
 	public static int LEVELUP_VERSION = 0;
@@ -42,57 +37,11 @@ public class LevelUp {
 			GameHost host = new GameHost();
 			host.start();
 		} else {
-			GameClient client = new GameClient();
-			client.start();
+			Game game = new Game(Config.getInt("numplayers", 4), false);
+			View view = new TerminalView(game);
 			
-			client.sendJoin("yourface");
-			
-			try {
-				BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
-				
-				String line;
-				List<Card> selectedCards = new ArrayList<Card>();
-				List<Integer> selectedAmounts = new ArrayList<Integer>();
-				
-				while((line = in.readLine()) != null) {
-					String[] parts = line.split(" ");
-					
-					try {
-						if(parts[0].equals("declare")) {
-							int suit = Card.getSuitInt(parts[1]);
-							int amount = Integer.parseInt(parts[2]);
-							client.sendDeclare(suit, amount);
-						} else if(parts[0].equals("withdraw")) {
-							client.sendWithdrawDeclaration();
-						} else if(parts[0].equals("defend")) {
-							int amount = Integer.parseInt(parts[1]);
-							client.sendDefendDeclaration(amount);
-						} else if(parts[0].equals("select")) {
-							int suit = Card.getSuitInt(parts[1]);
-							int value = Card.getValueInt(parts[2]);
-							int amount = Integer.parseInt(parts[3]);
-							selectedCards.add(new Card(suit, value));
-							selectedAmounts.add(amount);
-						} else if(parts[0].equals("qselect")) {
-							System.out.println("you have selected:");
-							for(int i = 0; i < selectedCards.size(); i++) {
-								System.out.println("\t" + selectedAmounts.get(i) + " " + selectedCards.get(i));
-							}
-						} else if(parts[0].equals("clear")) {
-							selectedCards.clear();
-							selectedAmounts.clear();
-						} else if(parts[0].equals("play")) {
-							client.sendPlayCards(selectedCards, selectedAmounts);
-							selectedCards.clear();
-							selectedAmounts.clear();
-						}
-					} catch(Exception e) {
-						e.printStackTrace();
-					}
-				}
-			} catch(IOException ioe) {
-				ioe.printStackTrace();
-			}
+			GameClient client = new GameClient(game, view);
+			view.run();
 		}
 	}
 	
