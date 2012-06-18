@@ -421,7 +421,7 @@ public class Game {
 						}
 					} else {
 						//if not combination, make sure player plays as many individual parts as possible
-						//for example, on a triple, the player must play a double if the player has noe
+						//for example, on a triple, the player must play a double if the player has one
 						
 						//find all the tuples
 						List<CardTuple> tuples = players.get(player).getTuples(trickSuit);
