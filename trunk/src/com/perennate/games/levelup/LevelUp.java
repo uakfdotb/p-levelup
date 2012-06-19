@@ -42,6 +42,21 @@ public class LevelUp {
 		if(Config.getBoolean("host", false)) {
 			GameHost host = new GameHost();
 			host.start();
+			
+			if(Config.getBoolean("hostmulti", false)) {
+				while(true) {
+					synchronized(host) {
+						while(!host.gameLoaded) {
+							try {
+								host.wait(2000);
+							} catch(InterruptedException e) {}
+						}
+					}
+					
+					host = new GameHost();
+					host.start();
+				}
+			}
 		} else {
 			Game game = new Game(Config.getInt("numplayers", 4), false);
 			
