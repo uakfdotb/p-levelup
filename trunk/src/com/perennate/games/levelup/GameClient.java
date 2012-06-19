@@ -36,6 +36,7 @@ public class GameClient implements Runnable {
 	Socket socket;
 	DataInputStream in;
 	DataOutputStream out;
+	boolean isConnected;
 	
 	Game game;
 	View view;
@@ -48,9 +49,10 @@ public class GameClient implements Runnable {
 		view.setClient(this);
 		
 		pid = -1;
+		isConnected = false;
 	}
 	
-	public void connect(String hostname) {
+	public void connect(String hostname, int port) {
 		InetAddress host = null;
 		
 		try {
@@ -66,7 +68,7 @@ public class GameClient implements Runnable {
 		}
 		
 		try {
-			socket = new Socket(host, DEFAULT_PORT);
+			socket = new Socket(host, port);
 			
 			in = new DataInputStream(socket.getInputStream());
 			out = new DataOutputStream(socket.getOutputStream());
@@ -75,16 +77,21 @@ public class GameClient implements Runnable {
 			view.eventConnectError("Unable to connect to " + host.getHostAddress() + ": " + ioe.getLocalizedMessage());
 		}
 		
+		isConnected = true;
 		new Thread(this).start();
 	}
 	
 	public void terminate(String reason) {
-		LevelUp.println("[GameClient] Terminating connection: " + reason);
-		view.eventTerminateError(reason);
-		
-		try {
-			socket.close();
-		} catch(IOException ioe) {}
+		if(isConnected) {
+			isConnected = false;
+			
+			LevelUp.println("[GameClient] Terminating connection: " + reason);
+			view.eventTerminateError(reason);
+			
+			try {
+				socket.close();
+			} catch(IOException ioe) {}
+		}
 	}
 	
 	public void run() {
@@ -230,6 +237,8 @@ public class GameClient implements Runnable {
 	}
 	
 	public void sendJoin(String name) {
+		if(!isConnected) return;
+		
 		synchronized(out) {
 			try {
 				out.write(PACKET_HEADER);
@@ -242,6 +251,8 @@ public class GameClient implements Runnable {
 	}
 	
 	public void sendDeclare(int suit, int amount) {
+		if(!isConnected) return;
+		
 		synchronized(out) {
 			try {
 				out.write(PACKET_HEADER);
@@ -255,6 +266,8 @@ public class GameClient implements Runnable {
 	}
 	
 	public void sendWithdrawDeclaration() {
+		if(!isConnected) return;
+		
 		synchronized(out) {
 			try {
 				out.write(PACKET_HEADER);
@@ -266,6 +279,8 @@ public class GameClient implements Runnable {
 	}
 	
 	public void sendDefendDeclaration(int amount) {
+		if(!isConnected) return;
+		
 		synchronized(out) {
 			try {
 				out.write(PACKET_HEADER);
@@ -278,6 +293,8 @@ public class GameClient implements Runnable {
 	}
 	
 	public void sendPlayCards(List<Card> cards, List<Integer> amounts) {
+		if(!isConnected) return;
+		
 		synchronized(out) {
 			try {
 				out.write(PACKET_HEADER);
@@ -301,6 +318,8 @@ public class GameClient implements Runnable {
 	}
 	
 	public void sendSelectBottom(List<Card> cards) {
+		if(!isConnected) return;
+		
 		synchronized(out) {
 			try {
 				out.write(PACKET_HEADER);

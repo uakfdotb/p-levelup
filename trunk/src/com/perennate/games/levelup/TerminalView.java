@@ -185,9 +185,11 @@ public class TerminalView extends View {
 							String username = parts[1];
 							
 							String hostname = "";
+							int port = GameClient.DEFAULT_PORT;
 							if(parts.length >= 3) hostname = parts[2];
+							if(parts.length >= 4) port = Integer.parseInt(parts[3]);
 							
-							client.connect(hostname);
+							client.connect(hostname, port);
 							client.sendJoin(username);
 						}
 					}

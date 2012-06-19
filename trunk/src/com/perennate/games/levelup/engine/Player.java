@@ -147,4 +147,16 @@ public class Player {
 	public String getHandString() {
 		return Card.toString(hand);
 	}
+	
+	public int getPoints() {
+		return points;
+	}
+	
+	public boolean getDefending() {
+		return defending;
+	}
+	
+	public String getDefendingString() {
+		return defending ? "defending" : "attacking";
+	}
 }

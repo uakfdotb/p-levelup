@@ -92,6 +92,14 @@ public class Card {
 		}
 	}
 	
+	public int getId() {
+		if(value == 15 || value == 16) {
+			return value + 37;
+		} else {
+			return suit * 13 + value - 2;
+		}
+	}
+	
 	public String toString() {
 		return getValueString(value) + getSuitString(suit);
 	}
