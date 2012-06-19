@@ -4,9 +4,9 @@ import com.perennate.games.levelup.engine.Game;
 import com.perennate.games.levelup.engine.GamePlayerListener;
 
 public abstract class View implements GamePlayerListener, Runnable {
-	Game game;
-	int pid;
-	GameClient client;
+	protected Game game;
+	protected int pid;
+	protected GameClient client;
 	
 	public View(Game game) {
 		this.game = game;

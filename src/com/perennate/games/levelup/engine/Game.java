@@ -957,8 +957,28 @@ public class Game {
 		return currentLevel;
 	}
 	
+	public int getNumPlayers() {
+		return players.size();
+	}
+	
 	public Player getPlayer(int i) {
 		return players.get(i);
+	}
+	
+	public int getNumPlays() {
+		return plays.size();
+	}
+	
+	public List<CardTuple> getPlay(int i) {
+		return plays.get(i);
+	}
+	
+	public Bet getPlayerBet(int pid) {
+		for(Bet bet : bets) {
+			if(bet.player == pid) return bet;
+		}
+		
+		return null;
 	}
 	
 	public void setBetCounter(int newCounter) {
@@ -1006,30 +1026,6 @@ public class Game {
 				listener.eventBottom(bottom);
 			}
 		}
-	}
-}
-
-class Bet {
-	int player;
-	int suit;
-	int amount;
-	
-	public Bet(int player, int suit, int amount) {
-		this.player = player;
-		this.suit = suit;
-		this.amount = amount;
-	}
-	
-	public int getPlayer() {
-		return player;
-	}
-	
-	public int getSuit() {
-		return suit;
-	}
-	
-	public int getAmount() {
-		return amount;
 	}
 }
 

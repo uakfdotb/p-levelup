@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 
 import com.perennate.games.levelup.engine.Game;
+import com.perennate.games.levelup.uglyview.UglyView;
 
 public class LevelUp {
 	public static int LEVELUP_VERSION = 0;
@@ -38,7 +39,18 @@ public class LevelUp {
 			host.start();
 		} else {
 			Game game = new Game(Config.getInt("numplayers", 4), false);
-			View view = new TerminalView(game);
+			
+			String viewSelection = Config.getString("view", "terminal");
+			View view = null;
+			
+			if(viewSelection.equals("terminal")) {
+				view = new TerminalView(game);
+			} else if(viewSelection.equals("ugly")) {
+				view = new UglyView(game);
+			} else {
+				println("[Main] Error: view selection [" + viewSelection + "] is invalid");
+				System.exit(-1);
+			}
 			
 			GameClient client = new GameClient(game, view);
 			view.run();
