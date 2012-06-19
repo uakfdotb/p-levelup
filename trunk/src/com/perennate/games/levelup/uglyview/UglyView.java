@@ -29,6 +29,10 @@ public class UglyView extends View {
 			    JOptionPane.ERROR_MESSAGE);
 	}
 	
+	public void eventGameError(String message) {
+		//todo: show message in console
+	}
+	
 	public GameClient getClient() {
 		return client;
 	}
@@ -51,7 +55,7 @@ public class UglyView extends View {
 			}
 		}
 		
-		frame.repaint();
+		frame.gameUpdated();
 	}
 	
 	public void eventConnectError(String message) {
@@ -116,7 +120,7 @@ public class UglyView extends View {
 	}
 	
 	public void eventDeclare(int pid, int suit, int amount) {
-		
+
 	}
 	
 	public void eventWithdrawDeclaration(int pid) {

@@ -12,7 +12,7 @@ public class UglyFrame extends JFrame {
 	HashMap<String, JPanel> panels;
 	//panels
 	LoginPanel loginPanel;
-	GamePanel gamePanel;
+	UglyPanel uglyPanel;
 
 	public UglyFrame(UglyView view) {
 		super(LevelUp.LEVELUP_VERSION_STRING);
@@ -25,8 +25,8 @@ public class UglyFrame extends JFrame {
 		loginPanel = new LoginPanel(view);
 		addScreen("login", loginPanel);
 		
-		gamePanel = new GamePanel(view, view.getGame());
-		addScreen("game", gamePanel);
+		uglyPanel = new UglyPanel(view);
+		addScreen("game", uglyPanel);
 
 		setScreen("login");
 		pack();
@@ -38,6 +38,11 @@ public class UglyFrame extends JFrame {
 		panels.put(name, pane);
 	}
 
+	public void gameUpdated() {
+		uglyPanel.buttonsPanel.updateButtons();
+		repaint();
+	}
+	
 	public void setScreen(String name) {
 		getContentPane().removeAll();
 		getContentPane().add(panels.get(name));

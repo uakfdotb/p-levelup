@@ -12,6 +12,8 @@ public class Card {
 	public static int SUIT_HEARTS = 2;
 	public static int SUIT_SPADES = 3;
 	
+	public static int nextCardUID = 0;
+	
 	int value; //2=two, 13=king, 14=ace; 15=small joker; 16=big joker
 	int suit;
 	
@@ -22,10 +24,15 @@ public class Card {
 	//gameValue is similar...
 	int gameValue;
 	
+	//this is just for keeping track of a specific card
+	int uid;
+	
 	public Card(int suit, int value) {
 		this.value = value;
 		this.suit = suit;
 		gameSuit = suit;
+		
+		uid = nextCardUID++;
 	}
 	
 	//create card based on a unique ID
@@ -39,6 +46,8 @@ public class Card {
 		}
 		
 		gameSuit = suit;
+		
+		uid = nextCardUID++;
 	}
 	
 	public boolean isTrump(int trumpSuit, int trumpValue) {
@@ -98,6 +107,10 @@ public class Card {
 		} else {
 			return suit * 13 + value - 2;
 		}
+	}
+	
+	public int getUID() {
+		return uid;
 	}
 	
 	public String toString() {

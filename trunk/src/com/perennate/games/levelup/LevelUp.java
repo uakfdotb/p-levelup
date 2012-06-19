@@ -32,6 +32,8 @@ public class LevelUp {
 			logTarget = new File(logFile);
 		}
 		
+		DEBUG = Config.getBoolean("debug", DEBUG);
+		
 		println("[Main] Starting up");
 		
 		if(Config.getBoolean("host", false)) {
