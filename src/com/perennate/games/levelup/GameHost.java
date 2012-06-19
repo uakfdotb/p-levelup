@@ -86,8 +86,10 @@ public class GameHost extends Thread {
 					LevelUp.println("[GameHost] Error while closing server socket; game may not update");
 				}
 				
-				for(GameConnection i : connections) {
-					i.sendGameLoaded();
+				synchronized(connections) {
+					for(GameConnection i : connections) {
+						i.sendGameLoaded();
+					}
 				}
 			}
 		}
@@ -103,15 +105,18 @@ public class GameHost extends Thread {
 				slots[pid].connection = null;
 				slots[pid].name = null;
 				
-				game.playerLeft(pid);
 				game.removeListener(connection);
+				game.playerLeft(pid);
 			}
 		}
 	}
 	
 	public void eventPlayerTerminate(GameConnection connection) {
 		LevelUp.println("[GameHost] Connection from " + connection.socket.getInetAddress().getHostAddress() + " is terminated");
-		connections.remove(connection);
+		
+		synchronized(connections) {
+			connections.remove(connection);
+		}
 	}
 	
 	public void run() {
@@ -143,7 +148,7 @@ public class GameHost extends Thread {
 			this.notifyAll();
 		}
 		
-		while(!game.gameOver()) {
+		while(!game.gameOver() && !connections.isEmpty()) {
 			synchronized(game) {
 				int ticks = game.update();
 				
