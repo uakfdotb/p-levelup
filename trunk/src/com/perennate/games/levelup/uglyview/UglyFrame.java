@@ -15,6 +15,8 @@ public class UglyFrame extends JFrame implements WindowListener {
 	//panels
 	LoginPanel loginPanel;
 	UglyPanel uglyPanel;
+	
+	GamePaintThread paintThread;
 
 	public UglyFrame(UglyView view) {
 		super(LevelUp.LEVELUP_VERSION_STRING);
@@ -29,6 +31,9 @@ public class UglyFrame extends JFrame implements WindowListener {
 		
 		uglyPanel = new UglyPanel(view);
 		addScreen("game", uglyPanel);
+		
+		paintThread = new GamePaintThread(uglyPanel.gamePanel, uglyPanel.buttonsPanel);
+		paintThread.start();
 
 		setScreen("login");
 		pack();
@@ -42,8 +47,7 @@ public class UglyFrame extends JFrame implements WindowListener {
 	}
 
 	public void gameUpdated() {
-		uglyPanel.buttonsPanel.updateButtons();
-		uglyPanel.gamePanel.repaint();
+		paintThread.repaint();
 	}
 	
 	public void setScreen(String name) {
@@ -60,6 +64,7 @@ public class UglyFrame extends JFrame implements WindowListener {
 
 	public void windowClosed(WindowEvent e) {
 		//shut down client and all
+		paintThread.terminate();
 		view.shutdown();
 		view.getClient().quit();
 	}
@@ -69,6 +74,53 @@ public class UglyFrame extends JFrame implements WindowListener {
 	public void windowDeactivated(WindowEvent e) {}
 	public void windowDeiconified(WindowEvent e) {}
 	public void windowIconified(WindowEvent e) {}
-	public void windowOpened(WindowEvent e) {}
+	public void windowOpened(WindowEvent e) {}	
+}
+
+class GamePaintThread extends Thread {
+	//use paintImmediately to repaint the game instead of repaint
+	//but if it's too slow once or twice then only repaint again once
+	GamePanel gamePanel;
+	GameButtonsPanel buttonsPanel;
 	
+	boolean doRepaint;
+	boolean terminate;
+	
+	public GamePaintThread(GamePanel gamePanel, GameButtonsPanel buttonsPanel) {
+		this.gamePanel = gamePanel;
+		this.buttonsPanel = buttonsPanel;
+		doRepaint = false;
+		terminate = false;
+	}
+	
+	public void repaint() {
+		synchronized(this) {
+			doRepaint = true;
+			this.notifyAll();
+		}
+	}
+	
+	public void terminate() {
+		terminate = true;
+		repaint();
+	}
+	
+	public void run() {
+		while(!terminate) {
+			synchronized(this) {
+				while(!doRepaint) {
+					try {
+						this.wait();
+					} catch(InterruptedException e) {}
+				}
+				
+				doRepaint = false;
+			}
+			
+			if(!terminate) {
+				buttonsPanel.updateButtons();
+				gamePanel.paintImmediately(0, 0, gamePanel.getWidth(), gamePanel.getHeight());
+			}
+		}
+	}
 }
