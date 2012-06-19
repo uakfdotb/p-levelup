@@ -5,6 +5,8 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+import javax.swing.JApplet;
+
 import com.perennate.games.levelup.engine.Game;
 import com.perennate.games.levelup.uglyview.UglyView;
 
@@ -13,6 +15,7 @@ public class LevelUp {
 	public static String LEVELUP_VERSION_STRING = "p-levelup 0 (http://levelup.perennate.com/)";
 	public static File logTarget = null;
 	public static boolean DEBUG = true;
+	public static JApplet APPLET = null;
 	
 	public static void main(String args[]) {
 		println(LEVELUP_VERSION_STRING);

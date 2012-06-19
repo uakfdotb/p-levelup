@@ -47,6 +47,7 @@ public class Game {
 	int nextPlayer;
 	
 	List<CardTuple> openingPlay;
+	List<List<CardTuple>> storedPlays;
 	List<List<CardTuple>> plays;
 	
 	//roundover fields
@@ -74,6 +75,7 @@ public class Game {
 		bottom = new ArrayList<Card>();
 		bets = new ArrayList<Bet>();
 		plays = new ArrayList<List<CardTuple>>();
+		storedPlays = new ArrayList<List<CardTuple>>();
 		
 		for(Player player : players) {
 			player.init();
@@ -341,8 +343,13 @@ public class Game {
 			//reconstruct trick
 			trick = CardTuple.createTrick(cards, amounts);
 			
-			//add to plays for this trick
+			//add to tricks for this play
 			plays.add(trick);
+			
+			//we might have stored tricks from the last play,
+			// so we clear it first
+			storedPlays.clear();
+			storedPlays.add(trick);
 			
 			//update information for this trick
 			trickCards = amount * cards.size();
@@ -550,6 +557,7 @@ public class Game {
 			
 			//add to plays for this trick
 			plays.add(trick);
+			storedPlays.add(trick);
 			
 			//calculate the next player
 			nextPlayer = (nextPlayer + 1) % players.size();
@@ -563,6 +571,10 @@ public class Game {
 				//give the winner points
 				players.get(winningPlayer).points += fieldPoints();
 				
+				//clear the current plays, but not the stored plays
+				//this way, views that access stored plays can still
+				// see this play before the first trick of the next
+				// play is made.
 				plays.clear();
 				
 				startingPlayer = winningPlayer;
@@ -967,12 +979,14 @@ public class Game {
 		return players.get(i);
 	}
 	
+	//the two functions below operate on stored plays instead of plays
+	
 	public int getNumPlays() {
-		return plays.size();
+		return storedPlays.size();
 	}
 	
 	public List<CardTuple> getPlay(int i) {
-		return plays.get(i);
+		return storedPlays.get(i);
 	}
 	
 	public Bet getPlayerBet(int pid) {

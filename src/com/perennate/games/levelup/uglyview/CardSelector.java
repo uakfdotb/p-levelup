@@ -30,6 +30,8 @@ public class CardSelector implements MouseListener {
 			selectedCards.clear();
 			selection.clear();
 		}
+		
+		panel.repaint();
 	}
 	
 	public boolean isSelected(Card card) {

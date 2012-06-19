@@ -18,6 +18,9 @@ public class UglyResources {
 	HashMap<String, Image> images;
 	HashMap<String, Font> fonts;
 	HashMap<String, Color> colors;
+	
+	String resourcesPath;
+	File resourcesDirectory;
 
 	public UglyResources(UglyView view) {
 		this.view = view;
@@ -27,11 +30,18 @@ public class UglyResources {
 	}
 
 	public void loadImages() {
-		File image_dir = new File(Config.getString("res_path", "res"));
-		if(!image_dir.exists()) view.eventUglyError("Resources directory does not exist");
+		resourcesPath = Config.getString("resources_path", "res");
+		
+		if(LevelUp.APPLET == null) {
+			resourcesDirectory = new File(resourcesPath);
+			if(!resourcesDirectory.exists()) {
+				view.eventUglyError("Resources directory does not exist");
+				return;
+			}
+		}
 
 		for(int i = 0; i < 54; i++) {
-			loadImage(image_dir, i + ".png", "card_" + i);
+			loadImage(i + ".png", "card_" + i);
 		}
 	}
 	
@@ -51,9 +61,13 @@ public class UglyResources {
 		colors.put("gold", gold);
 	}
 
-	public void loadImage(File parent_directory, String file_name, String image_name) {
-		File image_file = new File(parent_directory, file_name);
-		loadImage(image_file, image_name);
+	public void loadImage(String file_name, String image_name) {
+		if(resourcesDirectory == null) {
+			images.put(image_name, LevelUp.APPLET.getImage(LevelUp.APPLET.getDocumentBase(), resourcesPath + "/" + file_name));
+		} else {
+			File image_file = new File(resourcesDirectory, file_name);
+			loadImage(image_file, image_name);
+		}
 	}
 
 	public void loadImage(File file, String name) {
