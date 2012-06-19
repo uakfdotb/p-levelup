@@ -875,7 +875,9 @@ public class Game {
 				bottom.add(deck.remove(0));
 			}
 			
-			lastPlayerDealt = (currentDealer - 1) % players.size();
+			//calculate the player before the current dealer
+			// we add players.size() to ensure the modulo is non-negative
+			lastPlayerDealt = (currentDealer + players.size() - 1) % players.size();
 			setState(STATE_DEALING);
 			return 1000;
 		} else if(state == STATE_DEALING) {
@@ -987,6 +989,14 @@ public class Game {
 	
 	public void setRoundOverCounter(int newCounter) {
 		roundOverCounter = newCounter;
+	}
+	
+	public int getBetCounter() {
+		return betCountDown;
+	}
+	
+	public int getRoundOverCounter() {
+		return roundOverCounter;
 	}
 	
 	public int getNextPlayer() {

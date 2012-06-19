@@ -5,14 +5,13 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
 import java.awt.geom.AffineTransform;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JPanel;
 
+import com.perennate.games.levelup.LevelUp;
 import com.perennate.games.levelup.engine.Bet;
 import com.perennate.games.levelup.engine.Card;
 import com.perennate.games.levelup.engine.CardTuple;
@@ -40,11 +39,20 @@ public class GamePanel extends JPanel {
 	// so that we can track mouse clicks
 	List<CardPlacement> currentCards;
 	
+	//manages current card selection
+	CardSelector cardSelector;
+	
 	public GamePanel(UglyView view, Game game) {
 		super();
 		
 		this.view = view;
 		this.game = game;
+		
+		//card selection related initialization
+		currentCards = new ArrayList<CardPlacement>();
+		cardSelector = new CardSelector(view, this);
+		
+		addMouseListener(cardSelector);
 		
 		//load resources
 		resources = new UglyResources(view);
@@ -59,6 +67,9 @@ public class GamePanel extends JPanel {
 	
 	public void paintComponent(Graphics g_old) {
 		super.paintComponent(g_old);
+		
+		long millisStart = System.currentTimeMillis();
+		
 		Graphics2D g = (Graphics2D) g_old;
 		
 		//scale from game to current window size
@@ -90,9 +101,16 @@ public class GamePanel extends JPanel {
 			int cardX = cardsXStart + i * CARD_SMALL_WIDTH;
 			int cardY = cardsY;
 			
+			//if card is selected, draw it a bit higher
+			if(cardSelector.isSelected(card)) {
+				cardY -= 6;
+			}
+			
 			g.drawImage(image, cardX, cardY, null);
 			
-			currentCards.add(new CardPlacement(card, cardX, cardY, CARD_WIDTH, CARD_HEIGHT));
+			synchronized(currentCards) {
+				currentCards.add(new CardPlacement(card, cardX, cardY, CARD_WIDTH, CARD_HEIGHT));
+			}
 		}
 		
 		//draw the players in a circle, along with currently played cards (if any)
@@ -101,8 +119,8 @@ public class GamePanel extends JPanel {
 		int playerRadiusX = playerCenterX - 65;
 		int playerRadiusY = playerCenterY - 50;
 		
-		int playerTrickRadiusX = playerCenterX - 100;
-		int playerTrickRadiusY = playerCenterY - 100;
+		int playerTrickRadiusX = playerCenterX - 180;
+		int playerTrickRadiusY = playerCenterY - 150;
 		
 		int numPlayers = game.getNumPlayers();
 		int numPlays = game.getNumPlays();
@@ -116,7 +134,7 @@ public class GamePanel extends JPanel {
 			// that we will be placed on the bottom part of the screen. Then, we just
 			// go around the circle according to the values we have already calculaed
 			int relativeId = (i - pid) % numPlayers;
-			double radians = (0.25 - (double) relativeId / numPlayers) * 2 * Math.PI;
+			double radians = ((double) relativeId / numPlayers + 0.25) * 2 * Math.PI;
 
 			int circleX = (int) (playerRadiusX * Math.cos(radians)) + playerCenterX;
 			int circleY = (int) (playerRadiusY * Math.sin(radians)) + playerCenterY;
@@ -149,8 +167,9 @@ public class GamePanel extends JPanel {
 			Bet bet;
 			
 			//if state is playing, then check if player has played this round
-			if(game.getState() == Game.STATE_PLAYING && (i - game.getStartingPlayer()) % numPlayers < numPlays) {
-				List<CardTuple> trick = game.getPlay((i - game.getStartingPlayer()) % numPlayers);
+			// we add numPlayers to ensure that the modulo will be non-negative
+			if(game.getState() == Game.STATE_PLAYING && (i - game.getStartingPlayer() + numPlayers) % numPlayers < numPlays) {
+				List<CardTuple> trick = game.getPlay((i - game.getStartingPlayer() + numPlayers) % numPlayers);
 				
 				for(CardTuple tuple : trick) {
 					for(int j = 0; j < tuple.getAmount(); j++) {
@@ -173,38 +192,30 @@ public class GamePanel extends JPanel {
 			for(int j = 0; j < drawCards.size(); j++) {
 				Card card = drawCards.get(j);
 				Image image = resources.getImage("card_" + card.getId());
-				g.drawImage(image, circleX - 30 + CARD_MEDIUM_WIDTH * j, circleY, null);
+				g.drawImage(image, circleX - 35 + CARD_MEDIUM_WIDTH * j, circleY - CARD_HEIGHT / 2, null);
 			}
 		}
-	}
-}
-
-class CardSelector implements MouseListener {
-	UglyView view;
-	GamePanel panel;
-	
-	public CardSelector(UglyView view, GamePanel panel) {
-		this.view = view;
-		this.panel = panel;
-	}
-	
-	public void mouseClicked(MouseEvent e) {
 		
-	}
+		long millisEnd = System.currentTimeMillis();
+		LevelUp.debug("[GamePanel] Update took " + (millisEnd - millisStart) + " ms");
 	
-	public void mousePressed(MouseEvent e) {
+		int timer = -1;
 		
-	}
-	
-	public void mouseReleased(MouseEvent e) {
+		//if there's a timer in progress, draw it
+		if(game.getState() == Game.STATE_BETTING) {
+			timer = game.getBetCounter();
+		} else if(game.getState() == Game.STATE_ROUNDOVER) {
+			timer = game.getRoundOverCounter();
+		}
 		
-	}
-	
-	public void mouseEntered(MouseEvent e) {
-		
-	}
-	
-	public void mouseExited(MouseEvent e) {
-		
+		if(timer != -1) {
+			int timerX = playerCenterX - 30;
+			int timerY = playerCenterY - 20;
+			
+			g.setFont(resources.getFont("timer"));
+			g.setColor(Color.BLUE);
+			
+			g.drawString(timer + "", timerX, timerY);
+		}
 	}
 }

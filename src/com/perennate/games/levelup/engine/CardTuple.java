@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+//CardTuple represents an amount of a certain type of card
+// for example, a double is represented by card=Card and amount=2
+//combinations for tricks are represented by a list of CardTuple instances
 public class CardTuple {
 	Card card;
 	int amount;
@@ -39,6 +42,8 @@ public class CardTuple {
 		return amounts;
 	}
 	
+	//creates a trick, which is just a list of card tuples
+	//this trick must be in order by the value of the cards
 	public static List<CardTuple> createTrick(List<Card> cards, List<Integer> amounts) {
 		if(cards.size() != amounts.size()) return null;
 		

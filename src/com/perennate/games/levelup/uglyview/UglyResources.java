@@ -39,8 +39,11 @@ public class UglyResources {
 		Font playerCircleNameFont = new Font("Arial", Font.BOLD, 20);
 		fonts.put("playerCircleName", playerCircleNameFont);
 		
-		Font playerCircleAttribute = new Font("Arial", Font.PLAIN, 16);
-		fonts.put("playerCircleAttribute", playerCircleAttribute);
+		Font playerCircleAttributeFont = new Font("Arial", Font.PLAIN, 16);
+		fonts.put("playerCircleAttribute", playerCircleAttributeFont);
+		
+		Font timerFont = new Font("Times New Roman", Font.BOLD, 26);
+		fonts.put("timer", timerFont);
 	}
 	
 	public void loadColors() {
