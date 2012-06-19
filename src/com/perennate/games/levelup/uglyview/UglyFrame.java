@@ -1,5 +1,7 @@
 package com.perennate.games.levelup.uglyview;
 
+import java.awt.event.WindowEvent;
+import java.awt.event.WindowListener;
 import java.util.HashMap;
 
 import javax.swing.JFrame;
@@ -7,7 +9,7 @@ import javax.swing.JPanel;
 
 import com.perennate.games.levelup.LevelUp;
 
-public class UglyFrame extends JFrame {
+public class UglyFrame extends JFrame implements WindowListener {
 	UglyView view;
 	HashMap<String, JPanel> panels;
 	//panels
@@ -30,7 +32,8 @@ public class UglyFrame extends JFrame {
 
 		setScreen("login");
 		pack();
-		setDefaultCloseOperation(EXIT_ON_CLOSE);
+		addWindowListener(this);
+		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		setVisible(true);
 	}
 
@@ -40,7 +43,7 @@ public class UglyFrame extends JFrame {
 
 	public void gameUpdated() {
 		uglyPanel.buttonsPanel.updateButtons();
-		repaint();
+		uglyPanel.gamePanel.repaint();
 	}
 	
 	public void setScreen(String name) {
@@ -54,4 +57,18 @@ public class UglyFrame extends JFrame {
 		LevelUp.debug("[UglyFrame] Set screen to " + name + " (" + panels.get(name) + ")");
 		LevelUp.debug("[UglyFrame] Size: " + getSize() + ", " + panels.get(name).getSize());
 	}
+
+	public void windowClosed(WindowEvent e) {
+		//shut down client and all
+		view.shutdown();
+		view.getClient().quit();
+	}
+	
+	public void windowActivated(WindowEvent e) {}
+	public void windowClosing(WindowEvent e) {}
+	public void windowDeactivated(WindowEvent e) {}
+	public void windowDeiconified(WindowEvent e) {}
+	public void windowIconified(WindowEvent e) {}
+	public void windowOpened(WindowEvent e) {}
+	
 }

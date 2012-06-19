@@ -138,6 +138,11 @@ public class GameHost extends Thread {
 			}
 		}
 		
+		//if we're hosting multiple games, notify that this one started
+		synchronized(this) {
+			this.notifyAll();
+		}
+		
 		while(!game.gameOver()) {
 			synchronized(game) {
 				int ticks = game.update();

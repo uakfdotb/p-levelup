@@ -13,20 +13,24 @@ import com.perennate.games.levelup.engine.Game;
 public class UglyView extends View {
 	UglyFrame frame;
 	boolean hasJoined;
+	boolean isShutdown;
 	
 	public UglyView(Game game) {
 		super(game);
 		
 		hasJoined = false;
+		isShutdown = false;
 		frame = new UglyFrame(this);
 		frame.init();
 	}
 	
 	public void eventUglyError(String message) {
-		JOptionPane.showMessageDialog(frame,
-				message,
-			    "Client error",
-			    JOptionPane.ERROR_MESSAGE);
+		if(!isShutdown) {
+			JOptionPane.showMessageDialog(frame,
+					message,
+				    "Client error",
+				    JOptionPane.ERROR_MESSAGE);
+		}
 	}
 	
 	public void eventGameError(String message) {
@@ -43,6 +47,10 @@ public class UglyView extends View {
 	
 	public Game getGame() {
 		return game;
+	}
+	
+	protected void shutdown() {
+		isShutdown = true;
 	}
 	
 	public void eventGameUpdated() {
@@ -62,32 +70,40 @@ public class UglyView extends View {
 	}
 	
 	public void eventConnectError(String message) {
-		JOptionPane.showMessageDialog(frame,
-				message,
-			    "Connection error",
-			    JOptionPane.ERROR_MESSAGE);
-		
-		frame.setScreen("login");
+		if(!isShutdown) {
+			JOptionPane.showMessageDialog(frame,
+					message,
+				    "Connection error",
+				    JOptionPane.ERROR_MESSAGE);
+			
+			frame.setScreen("login");
+		}
 	}
 	
 	public void eventTerminateError(String message) {
-		hasJoined = false;
-		
-		JOptionPane.showMessageDialog(frame,
-				message,
-			    "Connection terminated",
-			    JOptionPane.ERROR_MESSAGE);
-		
-		frame.setScreen("login");
+		if(!isShutdown) {
+			hasJoined = false;
+			
+			JOptionPane.showMessageDialog(frame,
+					message,
+				    "Connection terminated",
+				    JOptionPane.ERROR_MESSAGE);
+			
+			frame.setScreen("login");
+		}
 	}
 	
 	public void eventPlayError(String message) {
 		LevelUp.println("[View] Server says you made an invalid play: " + message);
 		
-		JOptionPane.showMessageDialog(frame,
-				"The server says you made an error in playing: " + message,
-			    "You suck at the game",
-			    JOptionPane.ERROR_MESSAGE);
+		if(!isShutdown) {
+			JOptionPane.showMessageDialog(frame,
+					"The server says you made an error in playing: " + message,
+				    "You suck at the game",
+				    JOptionPane.ERROR_MESSAGE);
+			
+			frame.repaint();
+		}
 	}
 	
 	public void eventJoined(boolean success) {

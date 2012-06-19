@@ -12,7 +12,7 @@ public class Launcher extends JPanel implements ActionListener {
     public Launcher() {
         super();
         
-        launch = new JButton("Launch RedAlert!");
+        launch = new JButton("Launch Level Up!");
         launch.addActionListener(this);
         add(launch);
     }
