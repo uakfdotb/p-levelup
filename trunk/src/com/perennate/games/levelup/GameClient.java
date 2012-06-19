@@ -57,7 +57,13 @@ public class GameClient implements Runnable {
 		
 		try {
 			if(hostname.isEmpty()) {
-				host = InetAddress.getLocalHost();
+				hostname = Config.getString("hostname", null);
+				
+				if(hostname == null) {
+					host = InetAddress.getLocalHost();
+				} else {
+					host = InetAddress.getByName(hostname);
+				}
 			} else {
 				host = InetAddress.getByName(hostname);
 			}
@@ -126,29 +132,45 @@ public class GameClient implements Runnable {
 				} else if(identifier == PACKET_JOINOTHER) {
 					int otherPlayer = in.readInt();
 					String name = in.readUTF();
-					game.playerJoined(otherPlayer, name);
+
+					synchronized(game) {
+						game.playerJoined(otherPlayer, name);
+					}
 				} else if(identifier == PACKET_LEAVEOTHER) {
 					int otherPlayer = in.readInt();
-					game.playerLeft(otherPlayer);
+					
+					synchronized(game) {
+						game.playerLeft(otherPlayer);
+					}
 				} else if(identifier == PACKET_GAMELOADED) {
 					view.eventGameLoaded();
 				} else if(identifier == PACKET_GAMESTATECHANGE) {
 					int newState = in.readInt();
-					game.setState(newState);
+
+					synchronized(game) {
+						game.setState(newState);
+					}
 				} else if(identifier == PACKET_DECLARE) {
 					int otherPlayer = in.readInt();
 					int suit = in.readInt();
 					int amount = in.readInt();
 					
-					game.declare(otherPlayer, suit, amount);
+					synchronized(game) {
+						game.declare(otherPlayer, suit, amount);
+					}
 				} else if(identifier == PACKET_WITHDRAWDECLARATION) {
 					int otherPlayer = in.readInt();
-					game.withdrawDeclaration(otherPlayer);
+
+					synchronized(game) {
+						game.withdrawDeclaration(otherPlayer);
+					}
 				} else if(identifier == PACKET_DEFENDDECLARATION) {
 					int otherPlayer = in.readInt();
 					int amount = in.readInt();
-					
-					game.defendDeclaration(otherPlayer, amount);
+
+					synchronized(game) {
+						game.defendDeclaration(otherPlayer, amount);
+					}
 				} else if(identifier == PACKET_PLAYCARDS) {
 					int otherPlayer = in.readInt();
 					int numCards = in.readInt();
@@ -167,8 +189,10 @@ public class GameClient implements Runnable {
 					for(int i = 0; i < numCards; i++) {
 						amounts.add(in.readInt());
 					}
-					
-					game.playTrick(otherPlayer, CardTuple.createTrick(cards, amounts));
+
+					synchronized(game) {
+						game.playTrick(otherPlayer, CardTuple.createTrick(cards, amounts));
+					}
 				} else if(identifier == PACKET_PLAYERROR) {
 					String message = in.readUTF();
 					view.eventPlayError(message);
@@ -176,18 +200,27 @@ public class GameClient implements Runnable {
 					int suit = in.readInt();
 					int value = in.readInt();
 					Card card = game.constructCard(suit, value);
-					game.getPlayer(pid).addCard(card);
+
+					synchronized(game) {
+						game.getPlayer(pid).addCard(card);
+					}
 					
 					view.eventDealtCard(card);
 				} else if(identifier == PACKET_UPDATEBETCOUNTER) {
 					int newCounter = in.readInt();
-					game.setBetCounter(newCounter);
+					
+					synchronized(game) {
+						game.setBetCounter(newCounter);
+					}
 					
 					//game won't tell listeners unless it's controller, so tell view from here
 					view.eventUpdateBetCounter(newCounter);
 				} else if(identifier == PACKET_UPDATEROUNDOVERCOUNTER) {
 					int newCounter = in.readInt();
-					game.setRoundOverCounter(newCounter);
+					
+					synchronized(game) {
+						game.setRoundOverCounter(newCounter);
+					}
 					
 					//game won't tell listeners unless it's controller, so tell view from here
 					view.eventUpdateRoundOverCounter(newCounter);
@@ -202,7 +235,9 @@ public class GameClient implements Runnable {
 						cards.add(game.constructCard(suit, value));
 					}
 					
-					game.setBottom(cards);
+					synchronized(game) {
+						game.setBottom(cards);
+					}
 				} else if(identifier == PACKET_SELECTBOTTOM) {
 					int numCards = in.readInt();
 					
@@ -213,13 +248,17 @@ public class GameClient implements Runnable {
 						int value = in.readInt();
 						cards.add(game.constructCard(suit, value));
 					}
-					
-					game.selectBottom(pid, cards);
+
+					synchronized(game) {
+						game.selectBottom(pid, cards);
+					}
 				} else {
 					reason = "unknown packet received from server, id=" + identifier;
 					break;
 				}
 				
+				//notify view that the game updated
+				//this is outside of our synchronization statements
 				view.eventGameUpdated();
 			} catch(IOException ioe) {
 				reason = "error while reading: " + ioe.getLocalizedMessage();

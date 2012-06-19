@@ -46,15 +46,18 @@ public class UglyView extends View {
 	}
 	
 	public void eventGameUpdated() {
-		if(game.getState() == Game.STATE_PLAYING) {
-			if(pid == game.getNextPlayer()) {
-				LevelUp.println("[View] It is now your turn.");
-				LevelUp.println("[View] Your cards:" + game.getPlayer(pid).getHandString());
-			} else {
-				LevelUp.println("[View] It is Player " + game.getNextPlayer() + "'s turn.");
+		synchronized(game) {
+			if(game.getState() == Game.STATE_PLAYING) {
+				if(pid == game.getNextPlayer()) {
+					LevelUp.println("[View] It is now your turn.");
+					LevelUp.println("[View] Your cards:" + game.getPlayer(pid).getHandString());
+				} else {
+					LevelUp.println("[View] It is Player " + game.getNextPlayer() + "'s turn.");
+				}
 			}
 		}
 		
+		//GamePanel has it's own synchronization
 		frame.gameUpdated();
 	}
 	

@@ -139,7 +139,7 @@ class ButtonThreadedAction extends Thread {
 	public void run() {
 		List<Card> cards = cardSelector.getSelection();
 		
-		if(cards.isEmpty()) {
+		if((action.equals("declare") || action.equals("defend") || action.equals("play")) && cards.isEmpty()) {
 			view.eventGameError("You have not selected any cards!");
 			return;
 		}
