@@ -8,6 +8,7 @@ public class UglyPanel extends JPanel {
 	
 	GamePanel gamePanel;
 	GameButtonsPanel buttonsPanel;
+	ChatPanel chatPanel;
 
 	public UglyPanel(UglyView view) {
 		super();
@@ -15,9 +16,11 @@ public class UglyPanel extends JPanel {
 
 		gamePanel = new GamePanel(view, view.getGame());
 		buttonsPanel = new GameButtonsPanel(view, view.getGame(), gamePanel.cardSelector);
+		chatPanel = new ChatPanel(view);
 
 		setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
 		add(gamePanel);
 		add(buttonsPanel);
+		add(chatPanel);
 	}
 }

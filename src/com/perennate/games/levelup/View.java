@@ -28,6 +28,7 @@ public abstract class View implements GamePlayerListener, Runnable {
 	public abstract void eventPlayError(String message);
 	public abstract void eventJoined(boolean success);
 	public abstract void eventGameLoaded();
+	public abstract void eventPlayerChat(String name, String message);
 	
 	public int getPlayer() {
 		return pid;
