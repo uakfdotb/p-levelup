@@ -5,6 +5,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -15,6 +16,7 @@ import com.perennate.games.levelup.engine.Card;
 import com.perennate.games.levelup.engine.CardTuple;
 import com.perennate.games.levelup.engine.Game;
 import com.perennate.games.levelup.engine.GamePlayerListener;
+import com.perennate.games.levelup.util.Util;
 
 public class GameHost extends Thread {
 	public static int DEFAULT_PORT = 7553;
@@ -26,6 +28,9 @@ public class GameHost extends Thread {
 	GameSlot[] slots;
 	
 	Game game;
+	
+	//configuration
+	String commandTrigger; //if this prefixes a string, it's possibly a command
 	
 	public GameHost() {
 		game = new Game(Config.getInt("numplayers", 4), true);
@@ -46,6 +51,8 @@ public class GameHost extends Thread {
 				ioe.printStackTrace();
 			}
 		}
+		
+		commandTrigger = Config.getString("trigger", "!");
 	}
 	
 	public int eventPlayerJoin(GameConnection connection, String name) {
@@ -123,13 +130,114 @@ public class GameHost extends Thread {
 	}
 	
 	public void eventPlayerChat(GameConnection source, String name, String message) {
-		LevelUp.println("[GameHost] [" + name + "]: " + message);
+		boolean hideChat = false;
+		
+		//check commands
+		if(source != null && message.startsWith(commandTrigger)) {
+			String[] parts = message.substring(commandTrigger.length()).split(" ", 2);
+			
+			if(parts.length >= 1) { 
+				parts[0] = parts[0].toLowerCase();
+				
+				if(source.administrator) {
+					if(parts[0].equals("savegame") && parts.length >= 2) {
+						LevelUp.println("[GameHost] Attempting to save game to ");
+						File saveGamesPath = new File(Config.getString("savegames_path", "savegames/"));
+						File targetFile = new File(saveGamesPath, Util.cleanFileName(parts[1]));
+						
+						if(targetFile.exists()) {
+							chatTo(source, "The target file already exists.");
+						} else {
+							try {
+								FileOutputStream out = new FileOutputStream(targetFile);
+								
+								boolean success = false;
+								
+								synchronized(game) {
+									success = Game.writeGame(game, out);
+								}
+								
+								if(success) {
+									chatTo(source, "Game saved successfully as: [" + targetFile.getName() + "]");
+								} else {
+									chatTo(source, "Failed to save game!");
+								}
+							} catch(IOException ioe) {
+								chatTo(source, "Error while writing to file: " + ioe.getLocalizedMessage());
+							}
+						}
+					} else if(parts[0].equals("kick") && parts.length >= 2) {
+						GameConnection connection = getConnectionByPartial(parts[1]);
+						
+						if(connection != null) {
+							eventPlayerChat(null, "Server", "Player [" + connection.name + "] was kicked by admin [" + source.name + "].");
+							connection.terminate();
+						} else {
+							chatTo(source, "Failed to kick: player not found.");
+						}
+					}
+				} else {
+					if(parts[0].equals("password")) {
+						hideChat = true;
+						String password = Config.getString("password_" + source.name.toLowerCase(), null);
+						
+						if(password != null && password.equals(parts[1])) {
+							source.administrator = true;
+							chatTo(source, "You have logged in successfully");
+						} else {
+							source.terminate();
+						}
+					}
+				}
+			}
+		}
+		
+		if(!hideChat) {
+			LevelUp.println("[GameHost] [" + name + "]: " + message);
+			
+			synchronized(connections) {
+				for(GameConnection connection : connections) {
+					connection.sendChat(name, message);
+				}
+			}
+		}
+	}
+	
+	public void chatTo(GameConnection target, String message) {
+		synchronized(game) {
+			LevelUp.println("[GameHost] [-> " + game.getPlayer(target.pid).getName() + "] " + message);
+		}
+		
+		target.sendChat("Server", message);
+	}
+	
+	public GameConnection getConnectionByPartial(String name) {
+		name = name.toLowerCase();
+		
+		int foundPID = -1;
+		
+		synchronized(game) {
+			for(int i = 0; i < game.getNumPlayers(); i++) {
+				if(game.getPlayer(i).getName().toLowerCase().equals(name)) {
+					foundPID = i;
+					break;
+				} else if(game.getPlayer(i).getName().contains(name)) {
+					foundPID = i;
+				}
+			}
+		}
+		
+		if(foundPID == -1) return null;
 		
 		synchronized(connections) {
 			for(GameConnection connection : connections) {
-				connection.sendChat(name, message);
+				if(connection.pid == foundPID) {
+					return connection;
+				}
 			}
 		}
+		
+		return null;
 	}
 	
 	public void terminate() {
@@ -273,8 +381,12 @@ class GameConnection extends Thread implements GamePlayerListener {
 	DataOutputStream out;
 	
 	int pid;
+	String name;
 	Game game;
 	boolean terminated;
+	
+	//allows clients to use !password to login as an administrator
+	boolean administrator;
 	
 	public GameConnection(GameHost host, Socket socket, Game game) {
 		this.host = host;
@@ -316,7 +428,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 				
 				if(pid == -1) {
 					if(identifier == PACKET_JOIN) { //JOIN
-						String name = in.readUTF();
+						name = in.readUTF();
 						pid = host.eventPlayerJoin(this, name);
 						
 						//respond with the PID

@@ -1147,6 +1147,10 @@ public class Game {
 			out.write((byte) game.players.size());
 			
 			for(Player player : game.players) {
+				if(player.name == null) {
+					player.name = "Leaver";
+				}
+				
 				out.writeUTF(player.name);
 				out.write((byte) player.level);
 				out.writeShort((short) player.points);
@@ -1160,6 +1164,9 @@ public class Game {
 			}
 			
 			//write deck and bottom
+			if(game.deck == null) game.deck = new ArrayList<Card>();
+			if(game.bottom == null) game.bottom = new ArrayList<Card>();
+			
 			out.writeShort((short) game.deck.size());
 			
 			for(Card card : game.deck) {
@@ -1173,6 +1180,7 @@ public class Game {
 			}
 			
 			//write bets
+			if(game.bets == null) game.bets = new ArrayList<Bet>();
 			out.write((byte) game.bets.size());
 			
 			for(Bet bet : game.bets) {
@@ -1183,14 +1191,17 @@ public class Game {
 			
 			//write play information
 			// openingPlay, plays, and storedPlays
+			if(game.openingPlay == null) game.openingPlay = new ArrayList<CardTuple>();
 			CardTuple.writeTrick(game.openingPlay, outStream);
 			
+			if(game.plays == null) game.plays = new ArrayList<List<CardTuple>>();
 			out.write((byte) game.plays.size());
 			
 			for(List<CardTuple> trick : game.plays) {
 				CardTuple.writeTrick(trick, outStream);
 			}
 			
+			if(game.storedPlays == null) game.storedPlays = new ArrayList<List<CardTuple>>();
 			out.write((byte) game.storedPlays.size());
 			
 			for(List<CardTuple> trick : game.storedPlays) {
