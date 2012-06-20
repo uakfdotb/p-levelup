@@ -30,6 +30,7 @@ public class ChatPanel extends JPanel implements ActionListener {
 
     	chatLog = new JTextPane();
         chatLog.setPreferredSize(new Dimension(chatLog.getPreferredSize().width, 150));
+        chatLog.setEditable(false);
         
         submitText = new JTextField();
         submitText.addActionListener(this);

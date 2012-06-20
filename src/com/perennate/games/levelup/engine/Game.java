@@ -341,6 +341,7 @@ public class Game {
 			}
 			
 			//with multiple cards, you also need >= 2 for each card
+			//in other words, straights are not allowed in the game
 			if(cards.size() > 1 && amount < 2) {
 				println("Played cards are multiple, but less than two of each card");
 				return false;
