@@ -340,6 +340,12 @@ public class Game {
 				}
 			}
 			
+			//with multiple cards, you also need >= 2 for each card
+			if(cards.size() > 1 && amount < 2) {
+				println("Played cards are multiple, but less than two of each card");
+				return false;
+			}
+			
 			//seems alright
 			//remove player's cards
 			players.get(player).removeCards(cards, amounts);
