@@ -47,8 +47,11 @@ public class Game {
 	int nextPlayer;
 	
 	List<CardTuple> openingPlay;
-	List<List<CardTuple>> storedPlays;
 	List<List<CardTuple>> plays;
+	
+	//store the information from the previous play
+	int storedStartingPlayer;
+	List<List<CardTuple>> storedPlays;
 	
 	//roundover fields
 	int roundOverCounter;
@@ -132,6 +135,7 @@ public class Game {
 			//set first player of first round
 			nextPlayer = currentDealer;
 			startingPlayer = nextPlayer;
+			storedStartingPlayer = startingPlayer;
 		}
 		
 		for(GamePlayerListener listener : listeners) {
@@ -151,8 +155,11 @@ public class Game {
 		if(id >= 0 && id < players.size() && players.get(id).name == null) {
 			players.get(id).name = name;
 			
+			System.out.println(listeners.size());
 			for(GamePlayerListener listener : listeners) {
+				System.out.println(listener.getPlayer() + "...");
 				listener.eventPlayerJoined(id, name);
+				System.out.println(listener.getPlayer() + " done");
 			}
 			
 			return true;
@@ -350,6 +357,7 @@ public class Game {
 			// so we clear it first
 			storedPlays.clear();
 			storedPlays.add(trick);
+			storedStartingPlayer = startingPlayer;
 			
 			//update information for this trick
 			trickCards = amount * cards.size();
@@ -979,14 +987,26 @@ public class Game {
 		return players.get(i);
 	}
 	
-	//the two functions below operate on stored plays instead of plays
-	
 	public int getNumPlays() {
-		return storedPlays.size();
+		return plays.size();
 	}
 	
 	public List<CardTuple> getPlay(int i) {
+		return plays.get(i);
+	}
+	
+	//the two functions below operate on stored plays instead of plays
+	
+	public int getNumStoredPlays() {
+		return storedPlays.size();
+	}
+	
+	public List<CardTuple> getStoredPlay(int i) {
 		return storedPlays.get(i);
+	}
+	
+	public int getStoredStartingPlayer() {
+		return storedStartingPlayer;
 	}
 	
 	public Bet getPlayerBet(int pid) {

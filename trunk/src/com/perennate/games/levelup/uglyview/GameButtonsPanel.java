@@ -83,6 +83,8 @@ public class GameButtonsPanel extends JPanel implements ActionListener {
 		
 		if(!previousButtons.equals(newButtons)) {
 			removeAll();
+			revalidate();
+			repaint();
 			
 			for(String str : newButtons) {
 				if(str.equals("declare")) add(declareButton);
@@ -93,12 +95,12 @@ public class GameButtonsPanel extends JPanel implements ActionListener {
 				else if(str.equals("clear")) add(clearButton);
 				else LevelUp.println("[GameButtonsPanel] Warning: invalid button name: " + str);
 			}
-			
+
+			revalidate();
 			previousButtons = newButtons;
 		}
 		
 		LevelUp.debug("[GameButtonsPanel] Updated buttons: " + previousButtons);
-		revalidate();
 	}
 
 	public void actionPerformed(ActionEvent e) {

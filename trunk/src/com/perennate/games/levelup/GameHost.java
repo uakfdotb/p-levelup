@@ -49,8 +49,10 @@ public class GameHost extends Thread {
 		if(gameLoaded) return -1;
 		
 		int pid = -1;
-		
+
+		System.out.println("eventplayerjoin1");
 		synchronized(game) {
+			System.out.println("eventplayerjoin2");
 			for(int i = 0; i < slots.length; i++) {
 				if(slots[i].connection == null) {
 					slots[i].connection = connection;
@@ -92,6 +94,7 @@ public class GameHost extends Thread {
 					}
 				}
 			}
+			System.out.println("endjoin3");
 		}
 		
 		return pid;
@@ -347,13 +350,19 @@ class GameConnection extends Thread implements GamePlayerListener {
 		terminate();
 	}
 	
+	public void close() {
+		if(socket != null && !socket.isClosed()) {
+			try {
+				socket.close();
+			} catch(IOException ioe) {}
+		}
+	}
+	
 	public synchronized void terminate() {
 		if(!terminated) {
 			terminated = true;
 			
-			try {
-				socket.close();
-			} catch(IOException ioe) {}
+			close();
 			
 			if(pid != -1) {
 				host.eventPlayerLeave(this, pid);
@@ -367,6 +376,12 @@ class GameConnection extends Thread implements GamePlayerListener {
 		return pid;
 	}
 	
+	//in the functions below, we only send if the socket is connected
+	//we also synchronize output and close on failure
+	//terminate is not called because that could lead to a deadlock
+	// since we call eventPlayerLeave and eventPlayerTerminate from
+	// the function, if disconnection occurs in eventPlayerLeft
+	
 	public void sendJoin(int pid) {
 		if(!socket.isConnected()) return;
 		
@@ -376,7 +391,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 				out.write(PACKET_JOIN);
 				out.writeInt(pid);
 			} catch(IOException ioe) {
-				terminate();
+				close();
 			}
 		}
 	}
@@ -391,7 +406,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 				out.writeInt(pid);
 				out.writeUTF(name);
 			} catch(IOException ioe) {
-				terminate();
+				close();
 			}
 		}
 	}
@@ -405,7 +420,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 				out.write(PACKET_LEAVEOTHER);
 				out.writeInt(pid);
 			} catch(IOException ioe) {
-				terminate();
+				close();
 			}
 		}
 	}
@@ -418,7 +433,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 				out.write(PACKET_HEADER);
 				out.write(PACKET_GAMELOADED);
 			} catch(IOException ioe) {
-				terminate();
+				close();
 			}
 		}
 	}
@@ -432,7 +447,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 				out.write(PACKET_GAMESTATECHANGE);
 				out.writeInt(newState);
 			} catch(IOException ioe) {
-				terminate();
+				close();
 			}
 		}
 	}
@@ -448,7 +463,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 				out.writeInt(suit);
 				out.writeInt(amount);
 			} catch(IOException ioe) {
-				terminate();
+				close();
 			}
 		}
 	}
@@ -462,7 +477,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 				out.write(PACKET_WITHDRAWDECLARATION);
 				out.writeInt(pid);
 			} catch(IOException ioe) {
-				terminate();
+				close();
 			}
 		}
 	}
@@ -477,7 +492,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 				out.writeInt(pid);
 				out.writeInt(amount);
 			} catch(IOException ioe) {
-				terminate();
+				close();
 			}
 		}
 	}
@@ -503,7 +518,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 					out.writeInt(x);
 				}
 			} catch(IOException ioe) {
-				terminate();
+				close();
 			}
 		}
 	}
@@ -517,7 +532,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 				out.write(PACKET_PLAYERROR);
 				out.writeUTF(message);
 			} catch(IOException ioe) {
-				terminate();
+				close();
 			}
 		}
 	}
@@ -532,7 +547,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 				out.writeInt(card.getSuit());
 				out.writeInt(card.getValue());
 			} catch(IOException ioe) {
-				terminate();
+				close();
 			}
 		}
 	}
@@ -546,7 +561,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 				out.write(PACKET_UPDATEBETCOUNTER);
 				out.writeInt(newCounter);
 			} catch(IOException ioe) {
-				terminate();
+				close();
 			}
 		}
 	}
@@ -565,7 +580,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 					out.writeInt(card.getValue());
 				}
 			} catch(IOException ioe) {
-				terminate();
+				close();
 			}
 		}
 	}
@@ -584,7 +599,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 					out.writeInt(card.getValue());
 				}
 			} catch(IOException ioe) {
-				terminate();
+				close();
 			}
 		}
 	}
@@ -598,7 +613,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 				out.write(PACKET_UPDATEROUNDOVERCOUNTER);
 				out.writeInt(newCounter);
 			} catch(IOException ioe) {
-				terminate();
+				close();
 			}
 		}
 	}
