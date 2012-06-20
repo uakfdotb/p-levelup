@@ -1,5 +1,6 @@
 package com.perennate.games.levelup;
 
+import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -33,6 +34,11 @@ public class GameClient implements Runnable {
 	public static int PACKET_BOTTOM = 13;
 	public static int PACKET_SELECTBOTTOM = 14;
 	public static int PACKET_CHAT = 15;
+	public static int PACKET_SYNC = 16;
+	public static int PACKET_SYNCPART = 17;
+	public static int PACKET_SWAP = 18;
+	public static int PACKET_NEWPID = 19;
+	public static int PACKET_RESIZED = 20;
 	
 	Socket socket;
 	DataInputStream in;
@@ -42,6 +48,10 @@ public class GameClient implements Runnable {
 	Game game;
 	View view;
 	int pid;
+	
+	//byte[] buffer for syncing game with server
+	byte[] syncBuf;
+	int syncPos;
 	
 	public GameClient(Game game, View view) {
 		this.view = view;
@@ -263,6 +273,70 @@ public class GameClient implements Runnable {
 					String name = in.readUTF();
 					String message = in.readUTF();
 					view.eventPlayerChat(name, message);
+				} else if(identifier == PACKET_SYNC) {
+					int len = in.readInt();
+					LevelUp.println("[GameClient] Syncing game with server, length=" + len + " bytes");
+					
+					if(len > 1024 * 1024) {
+						LevelUp.println("[GameClient] Sync failed: game data rejected for large size");
+						reason = "sync failed";
+						break;
+					} else if(len < 0) {
+						LevelUp.println("[GameClient] Sync failed: game data rejected for negative length");
+						reason = "sync failed";
+						break;
+					}
+					
+					syncBuf = new byte[len];
+					syncPos = 0;
+				} else if(identifier == PACKET_SYNCPART) {
+					int len = in.readUnsignedShort();
+					byte[] bytes = new byte[len];
+					in.readFully(bytes);
+					
+					if(syncPos + len > bytes.length) {
+						LevelUp.println("[GameClient] Sync failed: sync position at " + (syncPos + len) + ", greater than length");
+						reason = "sync failed";
+						break;
+					}
+					
+					System.arraycopy(bytes, 0, syncBuf, syncPos, len);
+					syncPos += len;
+					
+					//check if we're done
+					if(syncPos >= bytes.length) {
+						LevelUp.println("[GameClient] Sync transfer completed; updating game instance...");
+						
+						synchronized(game) {
+							ByteArrayInputStream in = new ByteArrayInputStream(syncBuf);
+							Game syncGame = Game.readGame(in);
+							
+							if(syncGame == null) {
+								LevelUp.println("[GameClient] Sync failed: Game.readGame returned null (see above for errors)");
+								reason = "sync failed";
+								break;
+							}
+							
+							game.synchronize(syncGame, pid);
+						}
+					}
+				} else if(identifier == PACKET_SWAP) {
+					int id1 = in.readInt();
+					int id2 = in.readInt();
+					
+					synchronized(game) {
+						game.playerSwapped(id1, id2);
+					}
+				} else if(identifier == PACKET_NEWPID) {
+					//view should have already been notified by the swap
+					// event above, but now we update our own pid
+					pid = in.readInt();
+				} else if(identifier == PACKET_RESIZED) {
+					int newSize = in.readInt();
+					
+					synchronized(game) {
+						game.resized(newSize);
+					}
 				} else {
 					reason = "unknown packet received from server, id=" + identifier;
 					break;

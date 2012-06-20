@@ -186,6 +186,18 @@ public class UglyView extends View {
 
 	}
 	
+	public void eventPlayerSwapped(int id1, int id2) {
+		
+	}
+	
+	public void eventResized(int newSize) {
+		
+	}
+	
+	public void eventNewPID(int newPID) {
+		pid = newPID;
+	}
+	
 	public void run() {
 		
 	}

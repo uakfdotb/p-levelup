@@ -55,6 +55,28 @@ public class GameHost extends Thread {
 		commandTrigger = Config.getString("trigger", "!");
 	}
 	
+	public void loadGame() {
+		if(gameLoaded) return;
+		
+		synchronized(game) {
+			if(!gameLoaded) {
+				gameLoaded = true;
+				
+				try {
+					server.close();
+				} catch(IOException ioe) {
+					LevelUp.println("[GameHost] Error while closing server socket; game may not update");
+				}
+				
+				synchronized(connections) {
+					for(GameConnection i : connections) {
+						i.sendGameLoaded();
+					}
+				}
+			}
+		}
+	}
+	
 	public int eventPlayerJoin(GameConnection connection, String name) {
 		if(gameLoaded) return -1;
 		
@@ -87,20 +109,12 @@ public class GameHost extends Thread {
 				}
 			}
 			
+			//make sure player has the correct size of the game
+			connection.eventResized(slots.length);
+			
+			//if we're done, then start the game
 			if(done) {
-				gameLoaded = true;
-				
-				try {
-					server.close();
-				} catch(IOException ioe) {
-					LevelUp.println("[GameHost] Error while closing server socket; game may not update");
-				}
-				
-				synchronized(connections) {
-					for(GameConnection i : connections) {
-						i.sendGameLoaded();
-					}
-				}
+				loadGame();
 			}
 		}
 		
@@ -141,7 +155,7 @@ public class GameHost extends Thread {
 				
 				if(source.administrator) {
 					if(parts[0].equals("savegame") && parts.length >= 2) {
-						LevelUp.println("[GameHost] Attempting to save game to ");
+						LevelUp.println("[GameHost] Attempting to save game to " + parts[1]);
 						File saveGamesPath = new File(Config.getString("savegames_path", "savegames/"));
 						File targetFile = new File(saveGamesPath, Util.cleanFileName(parts[1]));
 						
@@ -166,6 +180,22 @@ public class GameHost extends Thread {
 								chatTo(source, "Error while writing to file: " + ioe.getLocalizedMessage());
 							}
 						}
+					} else if(parts[0].equals("loadgame") && parts.length >= 2) {
+						LevelUp.println("[GameHost] Attempting to load game from " + parts[1]);
+						File saveGamesPath = new File(Config.getString("savegames_path", "savegames/"));
+						File sourceFile = new File(saveGamesPath, Util.cleanFileName(parts[1]));
+						
+						if(!sourceFile.exists()) {
+							chatTo(source, "The source file does not exist.");
+						} else {
+							String error = loadSavedGame(sourceFile);
+							
+							if(error == null) {
+								eventPlayerChat(null, "Server", "The saved game has been loaded successfully.");
+							} else {
+								chatTo(source, error);
+							}
+						}
 					} else if(parts[0].equals("kick") && parts.length >= 2) {
 						GameConnection connection = getConnectionByPartial(parts[1]);
 						
@@ -175,6 +205,42 @@ public class GameHost extends Thread {
 						} else {
 							chatTo(source, "Failed to kick: player not found.");
 						}
+					} else if(parts[0].equals("swap") && parts.length >= 2) {
+						String[] subParts = parts[1].split(" ");
+						
+						if(subParts.length >= 2) {
+							try {
+								int id1 = Integer.parseInt(subParts[0]);
+								int id2 = Integer.parseInt(subParts[1]);
+								
+								synchronized(game) {
+									game.playerSwapped(id1,  id2);
+								}
+							} catch(NumberFormatException e) {}
+						}
+					} else if(parts[0].equals("resize") && parts.length >= 2) {
+						try {
+							synchronized(game) {
+								int numPlayers = Integer.parseInt(parts[1]);
+								
+								//update slots to the new size
+								//note that old connections will be kicked automatically
+								// by the Game calling eventPlayerLeft
+								GameSlot[] newSlots = new GameSlot[numPlayers];
+								
+								for(int i = 0; i < newSlots.length; i++) {
+									if(i < slots.length) {
+										newSlots[i] = slots[i];
+									} else {
+										newSlots[i] = new GameSlot();
+									}
+								}
+								
+								slots = newSlots;
+								
+								game.resized(numPlayers);
+							}
+						} catch(NumberFormatException e) {}
 					}
 				} else {
 					if(parts[0].equals("password")) {
@@ -203,6 +269,7 @@ public class GameHost extends Thread {
 		}
 	}
 	
+	//send a chat to a specific connection
 	public void chatTo(GameConnection target, String message) {
 		synchronized(game) {
 			LevelUp.println("[GameHost] [-> " + game.getPlayer(target.pid).getName() + "] " + message);
@@ -211,6 +278,8 @@ public class GameHost extends Thread {
 		target.sendChat("Server", message);
 	}
 	
+	//searches for a GameConnection instance by a partial
+	// of the player's name
 	public GameConnection getConnectionByPartial(String name) {
 		name = name.toLowerCase();
 		
@@ -254,26 +323,50 @@ public class GameHost extends Thread {
 		}
 	}
 	
-	public void loadSavedGame(File file) {
+	//attempts to load a saved game from the specified file
+	//returns error message on failure, or null on success
+	public String loadSavedGame(File file) {
 		if(!file.exists()) {
-			LevelUp.println("[GameHost] Loading saved game: error: file does not exist");
-			return;
+			String reason = "Loading saved game: error: file does not exist";
+			LevelUp.println("[GameHost] " + reason);
+			return reason;
 		}
 		
+		LevelUp.println("[GameHost] Attempting to load saved game from " + file.getAbsolutePath());
+		
 		synchronized(game) {
+			//make sure all slots are full
+			//otherwise, when the saved game is loaded we'll be missing people
+			for(int i = 0; i < slots.length; i++) {
+				if(slots[i].connection == null) {
+					String reason = "Loading saved game: error: slot " + i + " is unoccupied";
+					LevelUp.println("[GameHost] " + reason);
+					return reason;
+				}
+			}
+		
 			Game loadedGame = null;
 			
 			try {
 				FileInputStream in = new FileInputStream(file);
 				loadedGame = Game.readGame(in);
 			} catch(IOException ioe) {
-				LevelUp.println("[GameHost] Loading saved game: error: " + ioe.getLocalizedMessage());
-				return;
+				String reason = "Loading saved game: error: " + ioe.getLocalizedMessage();
+				LevelUp.println("[GameHost] " + reason);
+				return reason;
 			}
 			
 			if(loadedGame == null) {
-				LevelUp.println("[GameHost] Loading saved game: error: game is null");
-				return;
+				String reason = "Loading saved game: error: game is null";
+				LevelUp.println("[GameHost] " + reason);
+				return reason;
+			}
+			
+			if(loadedGame.getNumPlayers() != slots.length) {
+				String reason = "Loading saved game: error: number of players in saved game " +
+						"(" + loadedGame.getNumPlayers() + ") doesn't match current slots (" + slots.length + ")";
+				LevelUp.println("[GameHost] " + reason);
+				return reason;
 			}
 			
 			//synchronize current game with the loaded one
@@ -285,9 +378,10 @@ public class GameHost extends Thread {
 			boolean success = Game.writeGame(game, out);
 			
 			if(!success) {
-				LevelUp.println("[GameHost] Loading saved game: error: failed to buffer game data; disconnecting clients");
+				String reason = "Loading saved game: error: failed to buffer game data; disconnecting clients";
+				LevelUp.println("[GameHost] " + reason);
 				terminate();
-				return;
+				return reason;
 			}
 			
 			byte[] bytes = out.toByteArray();
@@ -307,10 +401,34 @@ public class GameHost extends Thread {
 			}
 		}
 		
-		LevelUp.println("[GameHost] Loaded saved game");
+		LevelUp.println("[GameHost] Saved game loaded successfully, and synchronization completed");
+		
+		//make sure to load the game, because the saved game
+		// is probably in the middle of something
+		loadGame();
+		
+		return null;
 	}
 	
 	public void run() {
+		if(server == null || !server.isBound()) {
+			//something probably failed in the server initialization code
+			//we sleep for a while
+			//then, in case we're hosting multiple games, notify to host another
+			
+			try {
+				Thread.sleep(5000);
+			} catch(InterruptedException e) {}
+			
+			gameLoaded = true;
+			
+			synchronized(this) {
+				this.notifyAll();
+			}
+			
+			return;
+		}
+		
 		while(!gameLoaded) {
 			try {
 				Socket socket = server.accept();
@@ -350,6 +468,8 @@ public class GameHost extends Thread {
 				}
 			}
 		}
+		
+		LevelUp.println("[GameHost] Game is over");
 	}
 }
 
@@ -373,6 +493,9 @@ class GameConnection extends Thread implements GamePlayerListener {
 	public static int PACKET_CHAT = 15;
 	public static int PACKET_SYNC = 16;
 	public static int PACKET_SYNCPART = 17;
+	public static int PACKET_SWAP = 18;
+	public static int PACKET_NEWPID = 19;
+	public static int PACKET_RESIZED = 20;
 	
 	GameHost host;
 	
@@ -534,6 +657,9 @@ class GameConnection extends Thread implements GamePlayerListener {
 						println("Unknown packet received (joined), id=" + identifier);
 						break;
 					}
+				} else {
+					println("Unknown packet received (init), id=" + identifier);
+					break;
 				}
 			} catch(IOException ioe) {
 				println("Error while reading: " + ioe.getLocalizedMessage());
@@ -613,6 +739,13 @@ class GameConnection extends Thread implements GamePlayerListener {
 	
 	public void eventPlayerLeft(int pid) {
 		if(!socket.isConnected()) return;
+		
+		if(pid == this.pid) {
+			//looks like we were kicked somehow, maybe while resizing game
+			//anyways, terminate the connection
+			close();
+			return;
+		}
 		
 		synchronized(out) {
 			try {
@@ -856,6 +989,49 @@ class GameConnection extends Thread implements GamePlayerListener {
 				out.write(PACKET_SYNCPART);
 				out.writeShort((short) len);
 				out.write(bytes, offset, len);
+			} catch(IOException ioe) {
+				close();
+			}
+		}
+	}
+	
+	public void eventPlayerSwapped(int id1, int id2) {
+		if(!socket.isConnected()) return;
+		
+		synchronized(out) {
+			try {
+				out.write(PACKET_HEADER);
+				out.write(PACKET_SWAP);
+				out.writeInt(id1);
+				out.writeInt(id2);
+			} catch(IOException ioe) {
+				close();
+			}
+		}
+	}
+	
+	public void eventNewPID(int newPID) {
+		if(!socket.isConnected()) return;
+		
+		synchronized(out) {
+			try {
+				out.write(PACKET_HEADER);
+				out.write(PACKET_NEWPID);
+				out.writeInt(newPID);
+			} catch(IOException ioe) {
+				close();
+			}
+		}
+	}
+	
+	public void eventResized(int newSize) {
+		if(!socket.isConnected()) return;
+		
+		synchronized(out) {
+			try {
+				out.write(PACKET_HEADER);
+				out.write(PACKET_RESIZED);
+				out.writeInt(newSize);
 			} catch(IOException ioe) {
 				close();
 			}
