@@ -133,6 +133,18 @@ public class TerminalView extends View {
 		LevelUp.println("[View] Next round starts in " + newCounter);
 	}
 	
+	public void eventPlayerSwapped(int id1, int id2) {
+		LevelUp.println("[View] Player " + id1 + " has been swapped with Player " + id2);
+	}
+	
+	public void eventNewPID(int newPID) {
+		pid = newPID;
+	}
+	
+	public void eventResized(int newSize) {
+		LevelUp.println("[View] Game has been resized to " + newSize + " players");
+	}
+	
 	public void run() {
 		try {
 			BufferedReader in = new BufferedReader(new InputStreamReader(System.in));

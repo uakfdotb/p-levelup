@@ -19,4 +19,8 @@ public interface GamePlayerListener {
 	public void eventBottom(List<Card> cards);
 	public void eventSelectBottom(List<Card> cards);
 	public void eventUpdateRoundOverCounter(int newCounter);
+	
+	public void eventPlayerSwapped(int id1, int id2);
+	public void eventNewPID(int newPID);
+	public void eventResized(int newSize);
 }

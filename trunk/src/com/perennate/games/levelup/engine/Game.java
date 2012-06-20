@@ -181,6 +181,53 @@ public class Game {
 		}
 	}
 	
+	public void playerSwapped(int id1, int id2) {
+		if(id1 >= 0 && id1 < players.size() && id2 >= 0 && id2 < players.size()) {
+			String tmpName = players.get(id1).name;
+			players.get(id1).name = players.get(id2).name;
+			players.get(id2).name = tmpName;
+			
+			for(GamePlayerListener listener : listeners) {
+				listener.eventPlayerSwapped(id1, id2);
+				
+				if(listener.getPlayer() == id1) {
+					listener.eventNewPID(id2);
+				} else if(listener.getPlayer() == id2) {
+					listener.eventNewPID(id1);
+				}
+			}
+		}
+	}
+	
+	public void resized(int newSize) {
+		ArrayList<Player> newPlayers = new ArrayList<Player>();
+		
+		//first, add on the old players that we can
+		for(int i = 0; i < players.size() && i < newSize; i++) {
+			newPlayers.add(players.get(i));
+		}
+		
+		//kick any extra old players
+		for(int i = newSize; i < players.size(); i++) {
+			playerLeft(i);
+		}
+		
+		//add extra new players if needed
+		for(int i = newPlayers.size(); i < newSize; i++) {
+			newPlayers.add(new Player(this));
+		}
+		
+		//update the players
+		players = newPlayers;
+		numPlayers = players.size();
+		numDecks = numPlayers / 2;
+		
+		//notify listeners of the resize
+		for(GamePlayerListener listener : listeners) {
+			listener.eventResized(newSize);
+		}
+	}
+	
 	//make a card declaration (bet)
 	//returns false if the declaration is illegal
 	public boolean declare(int player, int suit, int amount) {
@@ -1096,7 +1143,18 @@ public class Game {
 		nextPlayer = game.nextPlayer;
 		storedStartingPlayer = game.storedStartingPlayer;
 		roundOverCounter = game.roundOverCounter;
-		players = game.players;
+		
+		//for players, we want to make sure we keep the
+		// existing player names when possible
+		List<Player> newPlayers = game.players;
+		
+		for(int i = 0; i < newPlayers.size() && i < players.size(); i++) {
+			if(players.get(i).getName() != null) {
+				newPlayers.get(i).name = players.get(i).getName();
+			}
+		}
+		
+		players = newPlayers;
 		
 		//delete any cards that we have for other players
 		if(!controller && pid != -1) {
@@ -1273,9 +1331,11 @@ public class Game {
 					int cardId = in.readUnsignedByte();
 					player.hand.add(new Card(cardId));
 				}
+				
+				game.players.add(player);
 			}
 			
-			int deckSize = in.readUnsignedByte();
+			int deckSize = in.readUnsignedShort();
 			game.deck = new ArrayList<Card>(deckSize);
 			
 			for(int i = 0; i < deckSize; i++) {
@@ -1283,7 +1343,7 @@ public class Game {
 				game.deck.add(new Card(cardId));
 			}
 			
-			int bottomSize = in.readUnsignedByte();
+			int bottomSize = in.readUnsignedShort();
 			game.bottom = new ArrayList<Card>(bottomSize);
 			
 			for(int i = 0; i < bottomSize; i++) {
@@ -1318,7 +1378,7 @@ public class Game {
 			long verify = in.readLong();
 			
 			if(verify != 0) {
-				LevelUp.println("[Game] Warning: zero byte is not zero: " + verify);
+				LevelUp.println("[Game] Warning: zero bytes are not zero: " + verify);
 			}
 			
 			byte[] bytes = new byte[] {(byte) 180, 116, (byte) 174, (byte) 163, (byte) 181, (byte) 243, (byte) 249, (byte) 246};
