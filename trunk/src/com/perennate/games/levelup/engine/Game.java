@@ -155,11 +155,8 @@ public class Game {
 		if(id >= 0 && id < players.size() && players.get(id).name == null) {
 			players.get(id).name = name;
 			
-			System.out.println(listeners.size());
 			for(GamePlayerListener listener : listeners) {
-				System.out.println(listener.getPlayer() + "...");
 				listener.eventPlayerJoined(id, name);
-				System.out.println(listener.getPlayer() + " done");
 			}
 			
 			return true;

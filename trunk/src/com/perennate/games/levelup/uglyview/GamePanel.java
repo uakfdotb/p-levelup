@@ -165,6 +165,7 @@ public class GamePanel extends JPanel {
 				
 				g.drawString("Points: " + player.getPoints(), circleX - 55, circleY + 3);
 				g.drawString("Status: " + player.getDefendingString(), circleX - 55, circleY + 18);
+				g.drawString("Level: " + player.getLevel(), circleX - 55, circleY + 33);
 	
 				//now draw cards, if any
 				circleX = (int) (playerTrickRadiusX * Math.cos(radians)) + playerCenterX;

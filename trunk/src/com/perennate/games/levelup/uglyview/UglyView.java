@@ -53,6 +53,10 @@ public class UglyView extends View {
 		isShutdown = true;
 	}
 	
+	public void appendChatLog(String name, String message) {
+		frame.uglyPanel.chatPanel.append(name, message);
+	}
+	
 	public void eventGameUpdated() {
 		synchronized(game) {
 			if(game.getState() == Game.STATE_PLAYING) {
@@ -106,6 +110,11 @@ public class UglyView extends View {
 		}
 	}
 	
+	public void eventPlayerChat(String name, String message) {
+		LevelUp.println("[View] [" + name + "]: " + message);
+		appendChatLog(name, message);
+	}
+	
 	public void eventJoined(boolean success) {
 		LevelUp.println("[View] Join response: " + success);
 		
@@ -127,11 +136,11 @@ public class UglyView extends View {
 	//for GamePlayerListener
 	
 	public void eventPlayerJoined(int pid, String name) {
-		
+		appendChatLog("System", name + " has joined the game as Player " + (pid + 1) + ".");
 	}
 	
 	public void eventPlayerLeft(int pid) {
-
+		appendChatLog("System", "Player " + (pid + 1) + " has left the game.");
 	}
 	
 	public void eventGameStateChange(int newState) {
@@ -139,15 +148,18 @@ public class UglyView extends View {
 	}
 	
 	public void eventDeclare(int pid, int suit, int amount) {
-
+		String name = game.getPlayer(pid).getName();
+		appendChatLog("System", name + " has declared with " + amount + " of " + Card.getSuitString(suit) + ".");
 	}
 	
 	public void eventWithdrawDeclaration(int pid) {
-
+		String name = game.getPlayer(pid).getName();
+		appendChatLog("System", name + " has withdrawn a declaration.");
 	}
 	
 	public void eventDefendDeclaration(int pid, int amount) {
-
+		String name = game.getPlayer(pid).getName();
+		appendChatLog("System", name + " has defended a declaration with " + amount + ".");
 	}
 	
 	public void eventPlayCards(int pid, List<Card> cards, List<Integer> amounts) {

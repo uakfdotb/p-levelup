@@ -56,6 +56,10 @@ public class TerminalView extends View {
 		LevelUp.println("[View] The game has begun.");
 	}
 	
+	public void eventPlayerChat(String name, String message) {
+		LevelUp.println("[View] [" + name + "]: " + message);
+	}
+	
 	//for GamePlayerListener
 	
 	public void eventPlayerJoined(int pid, String name) {
@@ -181,6 +185,8 @@ public class TerminalView extends View {
 							client.sendSelectBottom(bottom);
 							selectedCards.clear();
 							selectedAmounts.clear();
+						} else if(parts[0].equals("chat")) {
+							client.sendChat(parts[1]);
 						}
 					} else {
 						if(parts[0].equals("join")) {

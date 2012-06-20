@@ -50,23 +50,21 @@ public class GameHost extends Thread {
 		
 		int pid = -1;
 
-		System.out.println("eventplayerjoin1");
 		synchronized(game) {
-			System.out.println("eventplayerjoin2");
 			for(int i = 0; i < slots.length; i++) {
 				if(slots[i].connection == null) {
 					slots[i].connection = connection;
 					slots[i].name = name;
 					pid = i;
-					
+
 					game.playerJoined(i, name);
 					break;
 				}
 			}
-			
+
 			if(pid == -1) return -1;
-			
-			LevelUp.println("[GameHost] Player [" + name + "|" + connection.socket.getInetAddress().getHostName() + "] has joined the game");
+
+			LevelUp.println("[GameHost] Player [" + name + "|" + connection.socket.getInetAddress().getHostAddress() + "] has joined the game");
 			game.addListener(connection);
 			
 			//check if we're done loading; also use this to let the joining player know about the slots
@@ -94,7 +92,6 @@ public class GameHost extends Thread {
 					}
 				}
 			}
-			System.out.println("endjoin3");
 		}
 		
 		return pid;
@@ -119,6 +116,16 @@ public class GameHost extends Thread {
 		
 		synchronized(connections) {
 			connections.remove(connection);
+		}
+	}
+	
+	public void eventPlayerChat(String name, String message) {
+		LevelUp.println("[GameHost] [" + name + "]: " + message);
+		
+		synchronized(connections) {
+			for(GameConnection connection : connections) {
+				connection.sendChat(name, message);
+			}
 		}
 	}
 	
@@ -182,6 +189,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 	public static int PACKET_UPDATEROUNDOVERCOUNTER = 12;
 	public static int PACKET_BOTTOM = 13;
 	public static int PACKET_SELECTBOTTOM = 14;
+	public static int PACKET_CHAT = 15;
 	
 	GameHost host;
 	
@@ -225,7 +233,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 					println("Remote disconnected");
 					break;
 				} else if(header != PACKET_HEADER) {
-					println("Invalid header received from client; terminating connection");
+					println("Invalid header " + header + " received from client; terminating connection");
 					break;
 				}
 				
@@ -244,6 +252,11 @@ class GameConnection extends Thread implements GamePlayerListener {
 						println("Unknown packet received (init), id=" + identifier);
 						break;
 					}
+				} else if(identifier == PACKET_CHAT) {
+					String message = in.readUTF();
+					
+					String name = game.getPlayer(pid).getName();
+					host.eventPlayerChat(name, message);
 				} else if(host.gameLoaded) {
 					if(identifier == PACKET_DECLARE) {
 						int suit = in.readInt();
@@ -612,6 +625,21 @@ class GameConnection extends Thread implements GamePlayerListener {
 				out.write(PACKET_HEADER);
 				out.write(PACKET_UPDATEROUNDOVERCOUNTER);
 				out.writeInt(newCounter);
+			} catch(IOException ioe) {
+				close();
+			}
+		}
+	}
+	
+	public void sendChat(String name, String message) {
+		if(!socket.isConnected()) return;
+		
+		synchronized(out) {
+			try {
+				out.write(PACKET_HEADER);
+				out.write(PACKET_CHAT);
+				out.writeUTF(name);
+				out.writeUTF(message);
 			} catch(IOException ioe) {
 				close();
 			}

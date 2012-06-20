@@ -32,6 +32,7 @@ public class GameClient implements Runnable {
 	public static int PACKET_UPDATEROUNDOVERCOUNTER = 12;
 	public static int PACKET_BOTTOM = 13;
 	public static int PACKET_SELECTBOTTOM = 14;
+	public static int PACKET_CHAT = 15;
 	
 	Socket socket;
 	DataInputStream in;
@@ -258,6 +259,10 @@ public class GameClient implements Runnable {
 					synchronized(game) {
 						game.selectBottom(pid, cards);
 					}
+				} else if(identifier == PACKET_CHAT) {
+					String name = in.readUTF();
+					String message = in.readUTF();
+					view.eventPlayerChat(name, message);
 				} else {
 					reason = "unknown packet received from server, id=" + identifier;
 					break;
@@ -376,6 +381,20 @@ public class GameClient implements Runnable {
 					out.writeInt(card.getSuit());
 					out.writeInt(card.getValue());
 				}
+			} catch(IOException ioe) {
+				terminate("failed to send packet");
+			}
+		}
+	}
+	
+	public void sendChat(String message) {
+		if(!isConnected) return;
+		
+		synchronized(out) {
+			try {
+				out.write(PACKET_HEADER);
+				out.write(PACKET_CHAT);
+				out.writeUTF(message);
 			} catch(IOException ioe) {
 				terminate("failed to send packet");
 			}
