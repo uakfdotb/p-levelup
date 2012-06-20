@@ -66,10 +66,13 @@ public class UglyFrame extends JFrame implements WindowListener {
 		//shut down client and all
 		paintThread.terminate();
 		view.shutdown();
-		view.getClient().quit();
+		view.getClient().terminate("window closed");
 	}
 	
-	public void windowActivated(WindowEvent e) {}
+	public void windowActivated(WindowEvent e) {
+		repaint();
+	}
+	
 	public void windowClosing(WindowEvent e) {}
 	public void windowDeactivated(WindowEvent e) {}
 	public void windowDeiconified(WindowEvent e) {}

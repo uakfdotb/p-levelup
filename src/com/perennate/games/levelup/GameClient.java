@@ -37,7 +37,6 @@ public class GameClient implements Runnable {
 	DataInputStream in;
 	DataOutputStream out;
 	boolean isConnected;
-	boolean quit;
 	
 	Game game;
 	View view;
@@ -51,10 +50,11 @@ public class GameClient implements Runnable {
 		
 		pid = -1;
 		isConnected = false;
-		quit = false;
 	}
 	
-	public void connect(String hostname, int port) {
+	public synchronized boolean connect(String hostname, int port) {
+		if(isConnected) return false;
+		
 		InetAddress host = null;
 		
 		try {
@@ -72,7 +72,7 @@ public class GameClient implements Runnable {
 		} catch(UnknownHostException e) {
 			LevelUp.println("[GameClient] Unable to resolve host address: " + e.getLocalizedMessage());
 			view.eventConnectError("Unable to resolve host address");
-			return;
+			return false;
 		}
 		
 		try {
@@ -88,6 +88,7 @@ public class GameClient implements Runnable {
 		}
 		
 		new Thread(this).start();
+		return true;
 	}
 	
 	public void terminate(String reason) {
@@ -97,200 +98,188 @@ public class GameClient implements Runnable {
 			LevelUp.println("[GameClient] Terminating connection: " + reason);
 			view.eventTerminateError(reason);
 			
-			try {
-				socket.close();
-			} catch(IOException ioe) {}
+			if(socket != null && !socket.isClosed()) {
+				try {
+					socket.close();
+				} catch(IOException ioe) {}
+			}
 		}
-	}
-	
-	public void quit() {
-		quit = true;
-		terminate("quit called");
 	}
 	
 	public void run() {
 		//reason for termination
 		String reason = "unknown";
-		
-		while(!quit) {
-			//wait until we are connected to start
-			while(!isConnected && !quit) {
-				try {
-					Thread.sleep(500);
-				} catch(InterruptedException e) {}
-			}
 			
-			while(!quit) {
-				try {
-					int header = in.read();
-					
-					if(header == -1) {
-						reason = "remote disconnected";
-						break;
-					} else if(header != PACKET_HEADER) {
-						reason = "invalid header=" + header + " received from server";
-						break;
-					}
-					
-					int identifier = in.read();
-					
-					if(identifier == PACKET_JOIN) { //JOIN
-						pid = in.readInt();
-						view.setPID(pid);
-						
-						if(pid == -1) {
-							reason = "server rejected connection";
-							view.eventJoined(false);
-							break;
-						}
-						
-						view.eventJoined(true);
-					} else if(identifier == PACKET_JOINOTHER) {
-						int otherPlayer = in.readInt();
-						String name = in.readUTF();
-	
-						synchronized(game) {
-							game.playerJoined(otherPlayer, name);
-						}
-					} else if(identifier == PACKET_LEAVEOTHER) {
-						int otherPlayer = in.readInt();
-						
-						synchronized(game) {
-							game.playerLeft(otherPlayer);
-						}
-					} else if(identifier == PACKET_GAMELOADED) {
-						view.eventGameLoaded();
-					} else if(identifier == PACKET_GAMESTATECHANGE) {
-						int newState = in.readInt();
-	
-						synchronized(game) {
-							game.setState(newState);
-						}
-					} else if(identifier == PACKET_DECLARE) {
-						int otherPlayer = in.readInt();
-						int suit = in.readInt();
-						int amount = in.readInt();
-						
-						synchronized(game) {
-							game.declare(otherPlayer, suit, amount);
-						}
-					} else if(identifier == PACKET_WITHDRAWDECLARATION) {
-						int otherPlayer = in.readInt();
-	
-						synchronized(game) {
-							game.withdrawDeclaration(otherPlayer);
-						}
-					} else if(identifier == PACKET_DEFENDDECLARATION) {
-						int otherPlayer = in.readInt();
-						int amount = in.readInt();
-	
-						synchronized(game) {
-							game.defendDeclaration(otherPlayer, amount);
-						}
-					} else if(identifier == PACKET_PLAYCARDS) {
-						int otherPlayer = in.readInt();
-						int numCards = in.readInt();
-						
-						List<Card> cards = new ArrayList<Card>(numCards);
-						
-						for(int i = 0; i < numCards; i++) {
-							int suit = in.readInt();
-							int value = in.readInt();
-							cards.add(game.constructCard(suit, value));
-						}
-						
-						int numAmounts = in.readInt();
-						List<Integer> amounts = new ArrayList<Integer>(numAmounts);
-						
-						for(int i = 0; i < numCards; i++) {
-							amounts.add(in.readInt());
-						}
-	
-						synchronized(game) {
-							game.playTrick(otherPlayer, CardTuple.createTrick(cards, amounts));
-						}
-					} else if(identifier == PACKET_PLAYERROR) {
-						String message = in.readUTF();
-						view.eventPlayError(message);
-					} else if(identifier == PACKET_DEALTCARD) {
-						int suit = in.readInt();
-						int value = in.readInt();
-						Card card = game.constructCard(suit, value);
-	
-						synchronized(game) {
-							game.getPlayer(pid).addCard(card);
-						}
-						
-						view.eventDealtCard(card);
-					} else if(identifier == PACKET_UPDATEBETCOUNTER) {
-						int newCounter = in.readInt();
-						
-						synchronized(game) {
-							game.setBetCounter(newCounter);
-						}
-						
-						//game won't tell listeners unless it's controller, so tell view from here
-						view.eventUpdateBetCounter(newCounter);
-					} else if(identifier == PACKET_UPDATEROUNDOVERCOUNTER) {
-						int newCounter = in.readInt();
-						
-						synchronized(game) {
-							game.setRoundOverCounter(newCounter);
-						}
-						
-						//game won't tell listeners unless it's controller, so tell view from here
-						view.eventUpdateRoundOverCounter(newCounter);
-					} else if(identifier == PACKET_BOTTOM) {
-						int numCards = in.readInt();
-						
-						List<Card> cards = new ArrayList<Card>(numCards);
-						
-						for(int i = 0; i < numCards; i++) {
-							int suit = in.readInt();
-							int value = in.readInt();
-							cards.add(game.constructCard(suit, value));
-						}
-						
-						synchronized(game) {
-							game.setBottom(cards);
-						}
-					} else if(identifier == PACKET_SELECTBOTTOM) {
-						int numCards = in.readInt();
-						
-						List<Card> cards = new ArrayList<Card>(numCards);
-						
-						for(int i = 0; i < numCards; i++) {
-							int suit = in.readInt();
-							int value = in.readInt();
-							cards.add(game.constructCard(suit, value));
-						}
-	
-						synchronized(game) {
-							game.selectBottom(pid, cards);
-						}
-					} else {
-						reason = "unknown packet received from server, id=" + identifier;
-						break;
-					}
-					
-					//notify view that the game updated
-					//this is outside of our synchronization statements
-					view.eventGameUpdated();
-				} catch(IOException ioe) {
-					reason = "error while reading: " + ioe.getLocalizedMessage();
-					
-					if(LevelUp.DEBUG) {
-						ioe.printStackTrace();
-					}
-					
+		while(isConnected) {
+			try {
+				int header = in.read();
+				
+				if(header == -1) {
+					reason = "remote disconnected";
+					break;
+				} else if(header != PACKET_HEADER) {
+					reason = "invalid header=" + header + " received from server";
 					break;
 				}
+				
+				int identifier = in.read();
+				
+				if(identifier == PACKET_JOIN) { //JOIN
+					pid = in.readInt();
+					view.setPID(pid);
+					
+					if(pid == -1) {
+						reason = "server rejected connection";
+						view.eventJoined(false);
+						break;
+					}
+					
+					view.eventJoined(true);
+				} else if(identifier == PACKET_JOINOTHER) {
+					int otherPlayer = in.readInt();
+					String name = in.readUTF();
+
+					synchronized(game) {
+						game.playerJoined(otherPlayer, name);
+					}
+				} else if(identifier == PACKET_LEAVEOTHER) {
+					int otherPlayer = in.readInt();
+					
+					synchronized(game) {
+						game.playerLeft(otherPlayer);
+					}
+				} else if(identifier == PACKET_GAMELOADED) {
+					view.eventGameLoaded();
+				} else if(identifier == PACKET_GAMESTATECHANGE) {
+					int newState = in.readInt();
+
+					synchronized(game) {
+						game.setState(newState);
+					}
+				} else if(identifier == PACKET_DECLARE) {
+					int otherPlayer = in.readInt();
+					int suit = in.readInt();
+					int amount = in.readInt();
+					
+					synchronized(game) {
+						game.declare(otherPlayer, suit, amount);
+					}
+				} else if(identifier == PACKET_WITHDRAWDECLARATION) {
+					int otherPlayer = in.readInt();
+
+					synchronized(game) {
+						game.withdrawDeclaration(otherPlayer);
+					}
+				} else if(identifier == PACKET_DEFENDDECLARATION) {
+					int otherPlayer = in.readInt();
+					int amount = in.readInt();
+
+					synchronized(game) {
+						game.defendDeclaration(otherPlayer, amount);
+					}
+				} else if(identifier == PACKET_PLAYCARDS) {
+					int otherPlayer = in.readInt();
+					int numCards = in.readInt();
+					
+					List<Card> cards = new ArrayList<Card>(numCards);
+					
+					for(int i = 0; i < numCards; i++) {
+						int suit = in.readInt();
+						int value = in.readInt();
+						cards.add(game.constructCard(suit, value));
+					}
+					
+					int numAmounts = in.readInt();
+					List<Integer> amounts = new ArrayList<Integer>(numAmounts);
+					
+					for(int i = 0; i < numCards; i++) {
+						amounts.add(in.readInt());
+					}
+
+					synchronized(game) {
+						game.playTrick(otherPlayer, CardTuple.createTrick(cards, amounts));
+					}
+				} else if(identifier == PACKET_PLAYERROR) {
+					String message = in.readUTF();
+					view.eventPlayError(message);
+				} else if(identifier == PACKET_DEALTCARD) {
+					int suit = in.readInt();
+					int value = in.readInt();
+					Card card = game.constructCard(suit, value);
+
+					synchronized(game) {
+						game.getPlayer(pid).addCard(card);
+					}
+					
+					view.eventDealtCard(card);
+				} else if(identifier == PACKET_UPDATEBETCOUNTER) {
+					int newCounter = in.readInt();
+					
+					synchronized(game) {
+						game.setBetCounter(newCounter);
+					}
+					
+					//game won't tell listeners unless it's controller, so tell view from here
+					view.eventUpdateBetCounter(newCounter);
+				} else if(identifier == PACKET_UPDATEROUNDOVERCOUNTER) {
+					int newCounter = in.readInt();
+					
+					synchronized(game) {
+						game.setRoundOverCounter(newCounter);
+					}
+					
+					//game won't tell listeners unless it's controller, so tell view from here
+					view.eventUpdateRoundOverCounter(newCounter);
+				} else if(identifier == PACKET_BOTTOM) {
+					int numCards = in.readInt();
+					
+					List<Card> cards = new ArrayList<Card>(numCards);
+					
+					for(int i = 0; i < numCards; i++) {
+						int suit = in.readInt();
+						int value = in.readInt();
+						cards.add(game.constructCard(suit, value));
+					}
+					
+					synchronized(game) {
+						game.setBottom(cards);
+					}
+				} else if(identifier == PACKET_SELECTBOTTOM) {
+					int numCards = in.readInt();
+					
+					List<Card> cards = new ArrayList<Card>(numCards);
+					
+					for(int i = 0; i < numCards; i++) {
+						int suit = in.readInt();
+						int value = in.readInt();
+						cards.add(game.constructCard(suit, value));
+					}
+
+					synchronized(game) {
+						game.selectBottom(pid, cards);
+					}
+				} else {
+					reason = "unknown packet received from server, id=" + identifier;
+					break;
+				}
+				
+				//notify view that the game updated
+				//this is outside of our synchronization statements
+				view.eventGameUpdated();
+			} catch(IOException ioe) {
+				reason = "error while reading: " + ioe.getLocalizedMessage();
+				
+				if(LevelUp.DEBUG) {
+					ioe.printStackTrace();
+				}
+				
+				break;
 			}
-			
-			//make sure connection is terminated
-			terminate(reason);
 		}
-	
+		
+		
+		//make sure connection is terminated
+		terminate(reason);
 	}
 	
 	public void sendJoin(String name) {

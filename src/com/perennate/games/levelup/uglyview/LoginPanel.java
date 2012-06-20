@@ -49,8 +49,11 @@ public class LoginPanel extends JPanel implements ActionListener {
 					name = "Yatrick Pu";
 				}
 				
-				view.getClient().connect(hostname, port);
-				view.getClient().sendJoin(name);
+				boolean success = view.getClient().connect(hostname, port);
+				
+				//only continue on success so that, in case user hit button twice,
+				// we don't send invalid packets to server
+				if(success) view.getClient().sendJoin(name);
 			} catch(NumberFormatException nfe) {
 				JOptionPane.showMessageDialog(view.getFrame(), "Port must be a number between 0 and 65535.", "Invalid port", JOptionPane.ERROR_MESSAGE);
 			}

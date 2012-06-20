@@ -73,8 +73,9 @@ public class GamePanel extends JPanel {
 		Graphics2D g = (Graphics2D) g_old;
 		
 		//scale from game to current window size
-		AffineTransform transform = AffineTransform.getScaleInstance((double) getWidth() / WIDTH, (double) getHeight() / HEIGHT);
-		g.setTransform(transform);
+		AffineTransform savedTransform = g.getTransform();
+		AffineTransform scaleTransform = AffineTransform.getScaleInstance((double) getWidth() / WIDTH, (double) getHeight() / HEIGHT);
+		g.transform(scaleTransform);
 		
 		synchronized(game) {
 			//get our pid
@@ -110,7 +111,11 @@ public class GamePanel extends JPanel {
 				g.drawImage(image, cardX, cardY, null);
 				
 				synchronized(currentCards) {
-					currentCards.add(new CardPlacement(card, cardX, cardY, CARD_WIDTH, CARD_HEIGHT));
+					//take transform into account when we're creating
+					// card placement objects
+					double[] dst = new double[2];
+					scaleTransform.transform(new double[] {cardX, cardY}, 0, dst, 0, 1);
+					currentCards.add(new CardPlacement(card, (int) dst[0], (int) dst[1], CARD_WIDTH, CARD_HEIGHT));
 				}
 			}
 			
@@ -124,7 +129,7 @@ public class GamePanel extends JPanel {
 			int playerTrickRadiusY = playerCenterY - 150;
 			
 			int numPlayers = game.getNumPlayers();
-			int numPlays = game.getNumPlays();
+			int numPlays = game.getNumStoredPlays();
 			
 			for(int i = 0; i < numPlayers; i++) {
 				Player player = game.getPlayer(i);
@@ -169,8 +174,8 @@ public class GamePanel extends JPanel {
 				
 				//if state is playing, then check if player has played this round
 				// we add numPlayers to ensure that the modulo will be non-negative
-				if(game.getState() == Game.STATE_PLAYING && (i - game.getStartingPlayer() + numPlayers) % numPlayers < numPlays) {
-					List<CardTuple> trick = game.getPlay((i - game.getStartingPlayer() + numPlayers) % numPlayers);
+				if(game.getState() == Game.STATE_PLAYING && (i - game.getStoredStartingPlayer() + numPlayers) % numPlayers < numPlays) {
+					List<CardTuple> trick = game.getStoredPlay((i - game.getStoredStartingPlayer() + numPlayers) % numPlayers);
 					
 					for(CardTuple tuple : trick) {
 						for(int j = 0; j < tuple.getAmount(); j++) {
@@ -218,6 +223,9 @@ public class GamePanel extends JPanel {
 				g.drawString(timer + "", timerX, timerY);
 			}
 		}
+		
+		//restore saved transform
+		g.setTransform(savedTransform);
 		
 		long millisEnd = System.currentTimeMillis();
 		LevelUp.debug("[GamePanel] Update took " + (millisEnd - millisStart) + " ms");
