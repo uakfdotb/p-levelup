@@ -6,6 +6,7 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.geom.AffineTransform;
+import java.awt.image.ImageObserver;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,7 +19,7 @@ import com.perennate.games.levelup.engine.CardTuple;
 import com.perennate.games.levelup.engine.Game;
 import com.perennate.games.levelup.engine.Player;
 
-public class GamePanel extends JPanel {
+public class GamePanel extends JPanel implements ImageObserver {
 	public static int WIDTH = 800;
 	public static int HEIGHT = 600;
 	public static int CARDSHEIGHT = 100;
@@ -108,7 +109,7 @@ public class GamePanel extends JPanel {
 					cardY -= 6;
 				}
 				
-				g.drawImage(image, cardX, cardY, null);
+				g.drawImage(image, cardX, cardY, this);
 				
 				synchronized(currentCards) {
 					//take transform into account when we're creating
@@ -142,27 +143,32 @@ public class GamePanel extends JPanel {
 				int relativeId = (i - pid) % numPlayers;
 				double radians = ((double) relativeId / numPlayers + 0.25) * 2 * Math.PI;
 	
+				//draw the player information
+				//this includes name, number of points, and team status
+				
+				//circleX and circleY identify the position of player information
 				int circleX = (int) (playerRadiusX * Math.cos(radians)) + playerCenterX;
 				int circleY = (int) (playerRadiusY * Math.sin(radians)) + playerCenterY;
 				
 				g.setFont(resources.getFont("playerCircleName"));
 				g.setColor(Color.DARK_GRAY);
 				
+				//assign colors depending on player status (DARK_GRAY remains default)
 				if(game.getState() == Game.STATE_PLAYING && i == game.getNextPlayer()) {
 					g.setColor(Color.RED);
 				} else if(relativeId == 0) {
 					g.setColor(resources.getColor("gold"));
 				}
 				
-				//draw the player information
-				//this includes name, number of points, and team status
 				String playerName = player.getName();
 				if(playerName == null) playerName = "Empty";
 				g.drawString(playerName, circleX - 55, circleY - 15);
 				
+				//set font and reset color
 				g.setFont(resources.getFont("playerCircleAttribute"));
 				g.setColor(Color.DARK_GRAY);
 				
+				//allocate 15 pixels per attribute
 				g.drawString("Points: " + player.getPoints(), circleX - 55, circleY + 3);
 				g.drawString("Status: " + player.getDefendingString(), circleX - 55, circleY + 18);
 				g.drawString("Level: " + player.getLevel(), circleX - 55, circleY + 33);
@@ -201,7 +207,7 @@ public class GamePanel extends JPanel {
 				for(int j = 0; j < drawCards.size(); j++) {
 					Card card = drawCards.get(j);
 					Image image = resources.getImage("card_" + card.getId());
-					g.drawImage(image, circleX - leftShift + CARD_MEDIUM_WIDTH * j, circleY - CARD_HEIGHT / 2, null);
+					g.drawImage(image, circleX - leftShift + CARD_MEDIUM_WIDTH * j, circleY - CARD_HEIGHT / 2, this);
 				}
 			}
 		
@@ -230,5 +236,16 @@ public class GamePanel extends JPanel {
 		
 		long millisEnd = System.currentTimeMillis();
 		LevelUp.debug("[GamePanel] Update took " + (millisEnd - millisStart) + " ms");
+	}
+	
+	public boolean updateImage(Image img, int infoflags, int x, int y, int width, int height) {
+		if((infoflags & ImageObserver.ALLBITS) == ImageObserver.ALLBITS) {
+			//repaint the screen so that the image can be shown
+			view.frame.gameUpdated();
+			
+			return false;
+		}
+		
+		return true;
 	}
 }
