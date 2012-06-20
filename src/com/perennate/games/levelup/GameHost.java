@@ -1,7 +1,10 @@
 package com.perennate.games.levelup;
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -119,7 +122,7 @@ public class GameHost extends Thread {
 		}
 	}
 	
-	public void eventPlayerChat(String name, String message) {
+	public void eventPlayerChat(GameConnection source, String name, String message) {
 		LevelUp.println("[GameHost] [" + name + "]: " + message);
 		
 		synchronized(connections) {
@@ -127,6 +130,76 @@ public class GameHost extends Thread {
 				connection.sendChat(name, message);
 			}
 		}
+	}
+	
+	public void terminate() {
+		synchronized(connections) {
+			for(GameConnection connection : connections) {
+				connection.terminate();
+			}
+		}
+		
+		if(server != null && !server.isClosed()) {
+			try {
+				server.close();
+			} catch(IOException ioe) {}
+		}
+	}
+	
+	public void loadSavedGame(File file) {
+		if(!file.exists()) {
+			LevelUp.println("[GameHost] Loading saved game: error: file does not exist");
+			return;
+		}
+		
+		synchronized(game) {
+			Game loadedGame = null;
+			
+			try {
+				FileInputStream in = new FileInputStream(file);
+				loadedGame = Game.readGame(in);
+			} catch(IOException ioe) {
+				LevelUp.println("[GameHost] Loading saved game: error: " + ioe.getLocalizedMessage());
+				return;
+			}
+			
+			if(loadedGame == null) {
+				LevelUp.println("[GameHost] Loading saved game: error: game is null");
+				return;
+			}
+			
+			//synchronize current game with the loaded one
+			game.synchronize(loadedGame, -1);
+			
+			//tell all the clients to synchronize
+			//use byte array to buffer the game data
+			ByteArrayOutputStream out = new ByteArrayOutputStream();
+			boolean success = Game.writeGame(game, out);
+			
+			if(!success) {
+				LevelUp.println("[GameHost] Loading saved game: error: failed to buffer game data; disconnecting clients");
+				terminate();
+				return;
+			}
+			
+			byte[] bytes = out.toByteArray();
+			
+			synchronized(connections) {
+				for(GameConnection connection : connections) {
+					connection.sendSync(bytes.length);
+				}
+			}
+			
+			for(int i = 0; i < bytes.length; i += 1400) {
+				synchronized(connections) {
+					for(GameConnection connection : connections) {
+						connection.sendSyncPart(bytes, i, Math.min(1400, bytes.length - i));
+					}
+				}
+			}
+		}
+		
+		LevelUp.println("[GameHost] Loaded saved game");
 	}
 	
 	public void run() {
@@ -190,6 +263,8 @@ class GameConnection extends Thread implements GamePlayerListener {
 	public static int PACKET_BOTTOM = 13;
 	public static int PACKET_SELECTBOTTOM = 14;
 	public static int PACKET_CHAT = 15;
+	public static int PACKET_SYNC = 16;
+	public static int PACKET_SYNCPART = 17;
 	
 	GameHost host;
 	
@@ -256,7 +331,7 @@ class GameConnection extends Thread implements GamePlayerListener {
 					String message = in.readUTF();
 					
 					String name = game.getPlayer(pid).getName();
-					host.eventPlayerChat(name, message);
+					host.eventPlayerChat(this, name, message);
 				} else if(host.gameLoaded) {
 					if(identifier == PACKET_DECLARE) {
 						int suit = in.readInt();
@@ -640,6 +715,35 @@ class GameConnection extends Thread implements GamePlayerListener {
 				out.write(PACKET_CHAT);
 				out.writeUTF(name);
 				out.writeUTF(message);
+			} catch(IOException ioe) {
+				close();
+			}
+		}
+	}
+	
+	public void sendSync(int len) {
+		if(!socket.isConnected()) return;
+		
+		synchronized(out) {
+			try {
+				out.write(PACKET_HEADER);
+				out.write(PACKET_SYNC);
+				out.writeInt(len);
+			} catch(IOException ioe) {
+				close();
+			}
+		}
+	}
+	
+	public void sendSyncPart(byte[] bytes, int offset, int len) {
+		if(!socket.isConnected()) return;
+		
+		synchronized(out) {
+			try {
+				out.write(PACKET_HEADER);
+				out.write(PACKET_SYNCPART);
+				out.writeShort((short) len);
+				out.write(bytes, offset, len);
 			} catch(IOException ioe) {
 				close();
 			}

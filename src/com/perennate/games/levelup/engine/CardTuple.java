@@ -1,5 +1,10 @@
 package com.perennate.games.levelup.engine;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -89,5 +94,30 @@ public class CardTuple {
 		}
 		
 		return true;
+	}
+	
+	public static void writeTrick(List<CardTuple> trick, OutputStream outStream) throws IOException {
+		DataOutputStream out = new DataOutputStream(outStream);
+		
+		out.write((byte) trick.size());
+		
+		for(CardTuple tuple : trick) {
+			out.write((byte) tuple.card.getId());
+			out.write((byte) tuple.amount);
+		}
+	}
+	
+	public static List<CardTuple> readTrick(InputStream inStream) throws IOException {
+		DataInputStream in = new DataInputStream(inStream);
+		
+		int size = in.read();
+		List<CardTuple> trick = new ArrayList<CardTuple>(size);
+		
+		for(int i = 0; i < size; i++) {
+			CardTuple tuple = new CardTuple(new Card(in.read()), in.read());
+			trick.add(tuple);
+		}
+		
+		return trick;
 	}
 }

@@ -1,5 +1,11 @@
 package com.perennate.games.levelup.engine;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -43,7 +49,7 @@ public class Game {
 	
 	//playing fields
 	int startingPlayer;
-	int trickCards;
+	int trickCards; //total number of cards in this play
 	int nextPlayer;
 	
 	List<CardTuple> openingPlay;
@@ -1073,6 +1079,254 @@ public class Game {
 			for(GamePlayerListener listener : listeners) {
 				listener.eventBottom(bottom);
 			}
+		}
+	}
+	
+	public void synchronize(Game game, int pid) {
+		state = game.state;
+		numPlayers = game.numPlayers;
+		numDecks = game.numDecks;
+		currentDealer = game.currentDealer;
+		firstRound = game.firstRound;
+		lastPlayerDealt = game.lastPlayerDealt;
+		betCountDown = game.betCountDown;
+		trumpSuit = game.trumpSuit;
+		startingPlayer = game.startingPlayer;
+		trickCards = game.trickCards;
+		nextPlayer = game.nextPlayer;
+		storedStartingPlayer = game.storedStartingPlayer;
+		roundOverCounter = game.roundOverCounter;
+		players = game.players;
+		
+		//delete any cards that we have for other players
+		if(!controller && pid != -1) {
+			for(int i = 0; i < players.size(); i++) {
+				if(i != pid) {
+					players.get(i).hand.clear();
+				}
+			}
+		}
+		
+		deck = game.deck;
+		bottom = game.bottom;
+		bets = game.bets;
+		openingPlay = game.openingPlay;
+		plays = game.plays;
+		storedPlays = game.storedPlays;
+	}
+	
+	public static boolean writeGame(Game game, OutputStream outStream) {
+		if(!game.controller) {
+			LevelUp.println("[Game] Save game failed: this is not a controller instance");
+			return false;
+		}
+		
+		DataOutputStream out = new DataOutputStream(outStream);
+		
+		try {
+			out.writeUTF("p-levelup saved game");
+			out.writeLong(System.currentTimeMillis());
+			out.writeInt(LevelUp.LEVELUP_VERSION);
+			
+			//write game state information
+			out.write((byte) game.state);
+			out.write((byte) game.numPlayers);
+			out.write((byte) game.numDecks);
+			out.write((byte) game.currentDealer);
+			out.writeBoolean(game.firstRound);
+			out.write((byte) game.lastPlayerDealt);
+			out.writeShort((short) game.betCountDown);
+			out.write((byte) game.trumpSuit);
+			out.write((byte) game.startingPlayer);
+			out.write((byte) game.trickCards);
+			out.write((byte) game.nextPlayer);
+			out.write((byte) game.storedStartingPlayer);
+			out.writeShort((short) game.roundOverCounter);
+			
+			//write player information
+			out.write((byte) game.players.size());
+			
+			for(Player player : game.players) {
+				out.writeUTF(player.name);
+				out.write((byte) player.level);
+				out.writeShort((short) player.points);
+				out.writeBoolean(player.defending);
+				
+				//write hand
+				out.writeShort((short) player.hand.size());
+				for(Card card : player.hand) {
+					out.write((byte) card.getId());
+				}
+			}
+			
+			//write deck and bottom
+			out.writeShort((short) game.deck.size());
+			
+			for(Card card : game.deck) {
+				out.write((byte) card.getId());
+			}
+			
+			out.writeShort((short) game.bottom.size());
+			
+			for(Card card : game.bottom) {
+				out.write((byte) card.getId());
+			}
+			
+			//write bets
+			out.write((byte) game.bets.size());
+			
+			for(Bet bet : game.bets) {
+				out.write((byte) bet.player);
+				out.write((byte) bet.suit);
+				out.write((byte) bet.amount);
+			}
+			
+			//write play information
+			// openingPlay, plays, and storedPlays
+			CardTuple.writeTrick(game.openingPlay, outStream);
+			
+			out.write((byte) game.plays.size());
+			
+			for(List<CardTuple> trick : game.plays) {
+				CardTuple.writeTrick(trick, outStream);
+			}
+			
+			out.write((byte) game.storedPlays.size());
+			
+			for(List<CardTuple> trick : game.storedPlays) {
+				CardTuple.writeTrick(trick, outStream);
+			}
+			
+			out.writeLong(0);
+			
+			byte[] bytes = new byte[] {(byte) 180, 116, (byte) 174, (byte) 163, (byte) 181, (byte) 243, (byte) 249, (byte) 246};
+			out.write(bytes);
+			
+			return true;
+		} catch(IOException ioe) {
+			LevelUp.println("[Game] Save game failed: " + ioe.getLocalizedMessage());
+			return false;
+		}
+	}
+	
+	public static Game readGame(InputStream inStream) {
+		DataInputStream in = new DataInputStream(inStream);
+		
+		try {
+			String str = in.readUTF();
+			
+			if(!str.equals("p-levelup saved game")) {
+				LevelUp.println("[Game] Load game: warning: header string does not match (" + str + ")");
+			}
+			
+			long currentTime = in.readLong();
+			int version = in.readInt();
+			
+			if(version != LevelUp.LEVELUP_VERSION) {
+				LevelUp.println("[Game] Load game: warning: different version number");
+			}
+			
+			int state = in.readUnsignedByte();
+			int numPlayers = in.readUnsignedByte();
+			int numDecks = in.readUnsignedByte();
+			
+			Game game = new Game(numPlayers, true);
+			game.state = state;
+			game.numDecks = numDecks;
+
+			game.currentDealer = in.readUnsignedByte();
+			game.firstRound = in.readBoolean();
+			game.lastPlayerDealt = in.readUnsignedByte();
+			game.betCountDown = in.readUnsignedShort();
+			game.trumpSuit = in.readUnsignedByte();
+			game.startingPlayer = in.readUnsignedByte();
+			game.trickCards = in.readUnsignedByte();
+			game.nextPlayer = in.readUnsignedByte();
+			game.storedStartingPlayer = in.readUnsignedByte();
+			game.roundOverCounter = in.readUnsignedShort();
+			
+			int playerSize = in.readUnsignedByte();
+			game.players = new ArrayList<Player>(playerSize);
+			
+			for(int i = 0; i < playerSize; i++) {
+				Player player = new Player(game);
+				player.name = in.readUTF();
+				player.level = in.readUnsignedByte();
+				player.points = in.readUnsignedShort();
+				player.defending = in.readBoolean();
+				
+				int handSize = in.readUnsignedShort();
+				player.hand = new ArrayList<Card>(handSize);
+				
+				for(int j = 0; j < handSize; j++) {
+					int cardId = in.readUnsignedByte();
+					player.hand.add(new Card(cardId));
+				}
+			}
+			
+			int deckSize = in.readUnsignedByte();
+			game.deck = new ArrayList<Card>(deckSize);
+			
+			for(int i = 0; i < deckSize; i++) {
+				int cardId = in.readUnsignedByte();
+				game.deck.add(new Card(cardId));
+			}
+			
+			int bottomSize = in.readUnsignedByte();
+			game.bottom = new ArrayList<Card>(bottomSize);
+			
+			for(int i = 0; i < bottomSize; i++) {
+				int cardId = in.readUnsignedByte();
+				game.bottom.add(new Card(cardId));
+			}
+			
+			int betSize = in.readUnsignedByte();
+			game.bets = new ArrayList<Bet>(betSize);
+			
+			for(int i = 0; i < betSize; i++) {
+				Bet bet = new Bet(in.readUnsignedByte(), in.readUnsignedByte(), in.readUnsignedByte());
+				game.bets.add(bet);
+			}
+			
+			game.openingPlay = CardTuple.readTrick(inStream);
+			
+			int playsSize = in.readUnsignedByte();
+			game.plays = new ArrayList<List<CardTuple>>(playsSize);
+			
+			for(int i = 0; i < playsSize; i++) {
+				game.plays.add(CardTuple.readTrick(inStream));
+			}
+			
+			int storedPlaysSize = in.readUnsignedByte();
+			game.storedPlays = new ArrayList<List<CardTuple>>(storedPlaysSize);
+			
+			for(int i = 0; i < storedPlaysSize; i++) {
+				game.storedPlays.add(CardTuple.readTrick(inStream));
+			}
+			
+			long verify = in.readLong();
+			
+			if(verify != 0) {
+				LevelUp.println("[Game] Warning: zero byte is not zero: " + verify);
+			}
+			
+			byte[] bytes = new byte[] {(byte) 180, 116, (byte) 174, (byte) 163, (byte) 181, (byte) 243, (byte) 249, (byte) 246};
+			byte[] compare = new byte[8];
+			in.readFully(compare);
+			
+			for(int i = 0; i < 8; i++) {
+				if(bytes[i] != compare[i]) {
+					LevelUp.println("[Game] Warning: byte " + i + " is not equal: " + compare[i]);
+				}
+			}
+			
+			return game;
+		} catch(EOFException e) {
+			LevelUp.println("[Game] End of file reached before load completed: " + e.getLocalizedMessage());
+			return null;
+		} catch(IOException ioe) {
+			LevelUp.println("[Game] Load game failed: " + ioe.getLocalizedMessage());
+			return null;
 		}
 	}
 }
