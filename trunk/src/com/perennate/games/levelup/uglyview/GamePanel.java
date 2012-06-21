@@ -180,8 +180,10 @@ public class GamePanel extends JPanel implements ImageObserver {
 				Bet bet;
 				
 				//if state is playing, then check if player has played this round
+				// can also be roundover to show the last play of the game
 				// we add numPlayers to ensure that the modulo will be non-negative
-				if(game.getState() == Game.STATE_PLAYING && (i - game.getStoredStartingPlayer() + numPlayers) % numPlayers < numPlays) {
+				if((game.getState() == Game.STATE_PLAYING || game.getState() == Game.STATE_ROUNDOVER) &&
+						(i - game.getStoredStartingPlayer() + numPlayers) % numPlayers < numPlays) {
 					List<CardTuple> trick = game.getStoredPlay((i - game.getStoredStartingPlayer() + numPlayers) % numPlayers);
 					
 					for(CardTuple tuple : trick) {
