@@ -83,7 +83,7 @@ public class LevelUp {
 		//output to file
 		if(logTarget != null) {
 			try {
-				PrintWriter out = new PrintWriter(new FileWriter(logTarget));
+				PrintWriter out = new PrintWriter(new FileWriter(logTarget, true));
 				out.println(message);
 				out.close();
 			} catch(IOException ioe) {
@@ -100,7 +100,7 @@ public class LevelUp {
 			//output to file
 			if(logTarget != null) {
 				try {
-					PrintWriter out = new PrintWriter(new FileWriter(logTarget));
+					PrintWriter out = new PrintWriter(new FileWriter(logTarget, true));
 					out.println(message);
 					out.close();
 				} catch(IOException ioe) {
