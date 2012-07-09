@@ -6,6 +6,7 @@ import java.util.HashMap;
 
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 
 import com.perennate.games.levelup.LevelUp;
 
@@ -121,9 +122,15 @@ class GamePaintThread extends Thread {
 			}
 			
 			if(!terminate) {
-				buttonsPanel.updateButtons();
-				gamePanel.paintImmediately(0, 0, gamePanel.getWidth(), gamePanel.getHeight());
+				SwingUtilities.invokeLater(new DoGameUpdate());
 			}
+		}
+	}
+	
+	class DoGameUpdate implements Runnable {
+		public void run() {
+			buttonsPanel.updateButtons();
+			gamePanel.paintImmediately(0, 0, gamePanel.getWidth(), gamePanel.getHeight());
 		}
 	}
 }
