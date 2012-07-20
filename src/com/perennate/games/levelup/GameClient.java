@@ -9,6 +9,8 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import com.perennate.games.levelup.engine.Card;
 import com.perennate.games.levelup.engine.CardTuple;
@@ -39,7 +41,9 @@ public class GameClient implements Runnable {
 	public static int PACKET_SWAP = 18;
 	public static int PACKET_NEWPID = 19;
 	public static int PACKET_RESIZED = 20;
+	public static int PACKET_NOOP = 21;
 	
+	Timer timer;
 	Socket socket;
 	DataInputStream in;
 	DataOutputStream out;
@@ -61,6 +65,8 @@ public class GameClient implements Runnable {
 		
 		pid = -1;
 		isConnected = false;
+		
+		timer = new Timer();
 	}
 	
 	public synchronized boolean connect(String hostname, int port) {
@@ -99,6 +105,15 @@ public class GameClient implements Runnable {
 		}
 		
 		new Thread(this).start();
+		
+		//add new noop task, and cancel if there's an existing one
+		if(timer != null) {
+			timer.cancel();
+		}
+		
+		timer = new Timer();
+		timer.schedule(new NoopTask(), 0, 30000); //send NOOP to server every 30 seconds
+		
 		return true;
 	}
 	
@@ -337,6 +352,9 @@ public class GameClient implements Runnable {
 					synchronized(game) {
 						game.resized(newSize);
 					}
+				} else if(identifier == PACKET_NOOP) {
+					//cool
+					//server will respond if we send another NOOP, so we don't
 				} else {
 					reason = "unknown packet received from server, id=" + identifier;
 					break;
@@ -472,6 +490,25 @@ public class GameClient implements Runnable {
 			} catch(IOException ioe) {
 				terminate("failed to send packet");
 			}
+		}
+	}
+	
+	public void sendNoop() {
+		if(!isConnected) return;
+		
+		synchronized(out) {
+			try {
+				out.write(PACKET_HEADER);
+				out.write(PACKET_NOOP);
+			} catch(IOException ioe) {
+				terminate("failed to send packet");
+			}
+		}
+	}
+
+	class NoopTask extends TimerTask {
+		public void run() {
+			sendNoop();
 		}
 	}
 }
