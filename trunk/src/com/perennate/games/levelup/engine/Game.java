@@ -471,7 +471,7 @@ public class Game {
 				// equal to the total cards in suit or the total trick
 				// cards, then this in an invalid play
 				if(totalSuitCards != suitTotal && totalSuitCards != trickCards) {
-					println("Played cards do not follow suit.");
+					println("Played cards do not follow suit (" + totalSuitCards + "/" + suitTotal + ").");
 					return false;
 				}
 				
@@ -1112,6 +1112,12 @@ public class Game {
 	
 	public Card constructCard(int suit, int value) {
 		Card card = new Card(suit, value);
+		card.calculateGameSuit(trumpSuit, currentLevel);
+		return card;
+	}
+	
+	public Card constructCard(Card original) {
+		Card card = new Card(original.suit, original.value);
 		card.calculateGameSuit(trumpSuit, currentLevel);
 		return card;
 	}

@@ -106,7 +106,7 @@ public class UglyView extends View {
 				    "You suck at the game",
 				    JOptionPane.ERROR_MESSAGE);
 			
-			frame.repaint();
+			frame.gameUpdated();
 		}
 	}
 	
